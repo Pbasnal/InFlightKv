@@ -1,0 +1,63 @@
+# ===== OS junk =====
+.DS_Store
+Thumbs.db
+
+# ===== IDEs =====
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.project
+.classpath
+.settings/
+
+# ===== Gradle =====
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# ===== Maven (just in case) =====
+target/
+
+# ===== Logs =====
+*.log
+logs/
+
+# ===== Spring Boot =====
+spring.log
+
+# ===== GraalVM / Native Image =====
+native/
+*.h
+*.o
+*.so
+*.dylib
+*.exe
+*.dll
+*.pdb
+*.build_artifacts.txt
+
+# GraalVM agent output
+native-image/
+graal/
+
+# ===== Environment =====
+.env
+.env.*
+!.env.example
+
+# ===== Test artifacts =====
+out/
+bin/
+
+# ===== Coverage =====
+coverage/
+*.exec
+*.ec
+
+# ===== Temporary files =====
+tmp/
+*.tmp
+*.swp
+*.bak
