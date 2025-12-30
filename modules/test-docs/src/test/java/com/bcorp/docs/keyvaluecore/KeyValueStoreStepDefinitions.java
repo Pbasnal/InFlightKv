@@ -46,7 +46,7 @@ public class KeyValueStoreStepDefinitions {
     @Given("I set values for multiple keys:")
     public void iSetValuesForMultipleKeys(io.cucumber.datatable.DataTable dataTable) {
         dataTable.asMaps().forEach(row ->
-            iSetAValueForKey(row.get("value"), row.get("key"))
+                iSetAValueForKey(row.get("value"), row.get("key"))
         );
     }
 
@@ -65,6 +65,17 @@ public class KeyValueStoreStepDefinitions {
         Thread.sleep(50);
     }
 
+//    @Given("I have {int} keys with values")
+//    public void iHaveKeysWithValues(int keyCount) {
+//        if (keyCount == 0) return; // No keys to set up
+//
+//        // Set up test keys for partitioning scenarios
+//        String[] testKeys = {"key-1", "key-2", "key-3", "key-100"};
+//        for (int i = 0; i < Math.min(keyCount, testKeys.length); i++) {
+//            iSetAValueForKey("value-" + (i + 1), testKeys[i]);
+//        }
+//    }
+
     @Given("I set multiple values for keys from {string} to {string}")
     public void iSetMultipleValuesForKeysFromTo(String startKey, String endKey) {
         // Extract number from keys like "mem-key-1" to "mem-key-1000"
@@ -81,6 +92,14 @@ public class KeyValueStoreStepDefinitions {
     @When("I get the value for key {string}")
     public void iGetTheValueForKey(String key) {
         DataKey dataKey = DataKey.from(key);
+        retrievedValue = keyValueStore.get(dataKey).join();
+    }
+
+    @When("I update the value to {string} for key {string}")
+    public void iUpdateTheValueToForKey(String value, String key) {
+        DataKey dataKey = DataKey.from(key);
+        DataValue dataValue = DataValue.fromString(value);
+        keyValueStore.set(dataKey, dataValue, null).join();
         retrievedValue = keyValueStore.get(dataKey).join();
     }
 
@@ -124,6 +143,20 @@ public class KeyValueStoreStepDefinitions {
         // This step documents that operations are async
     }
 
+    @Then("the value at key {string} should be {string} with version {int}")
+    public void theRetrievedValueShouldBe(String key, String expectedValue, int expectedVersion) {
+        DataKey dataKey = DataKey.from(key);
+        DataValue value = keyValueStore.get(dataKey).join();
+
+        if (keyValueStore.containsKey(dataKey).join()) {
+            assertNotNull(value, "Retrieved value should not be null");
+            String actualValue = new String(value.data(), StandardCharsets.UTF_8);
+            assertEquals(expectedValue, actualValue, "Retrieved value should match expected value");
+            assertEquals(expectedVersion, value.version(), "Retrieved value should match expected version");
+        } else {
+            assertNull(value, "Retrieved value should be null");
+        }
+    }
 
     @Then("the retrieved value should be {string}")
     public void theRetrievedValueShouldBe(String expectedValue) {

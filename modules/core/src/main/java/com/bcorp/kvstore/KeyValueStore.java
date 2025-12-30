@@ -26,6 +26,10 @@ public class KeyValueStore {
         return partitions[getPartition(key)].get(key);
     }
 
+    public CompletableFuture<Boolean> containsKey(DataKey key) {
+        return partitions[getPartition(key)].containsKey(key);
+    }
+
     public CompletableFuture<DataValue> set(DataKey key, DataValue value, Long prevVersion) {
         return partitions[getPartition(key)].set(key, value, prevVersion);
     }

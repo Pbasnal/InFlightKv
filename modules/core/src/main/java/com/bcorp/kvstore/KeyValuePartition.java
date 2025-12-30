@@ -106,6 +106,14 @@ public class KeyValuePartition {
                 OperationType.UPDATE : OperationType.VERSION_MISMATCH; // update using new version or fail
     }
 
+    public CompletableFuture<Boolean> containsKey(DataKey key) {
+        CompletableFuture<Boolean> resultFuture = new CompletableFuture<>();
+
+        eventLoop.execute(() -> resultFuture.complete(keyValueStore.containsKey(key)));
+
+        return resultFuture;
+    }
+
     enum OperationType {
         INSERT,
         UPDATE,
