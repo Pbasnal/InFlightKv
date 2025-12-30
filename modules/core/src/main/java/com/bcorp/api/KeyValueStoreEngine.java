@@ -5,25 +5,25 @@ import com.bcorp.kvstore.KeyValueStore;
 
 import java.util.Collections;
 
-public class KeyValueStoreApi {
+public class KeyValueStoreEngine {
     private final KeyValueStore keyValueStore;
-    private final Router router;
+    private final Resolver resolver;
 
-    public KeyValueStoreApi(KeyValueStore _keyValueStore,
-                            Router _router) {
+    public KeyValueStoreEngine(KeyValueStore _keyValueStore,
+                               Resolver _resolver) {
         this.keyValueStore = _keyValueStore;
-        this.router = _router;
+        this.resolver = _resolver;
     }
 
     public <K, V> CacheResponse<V> setCache(K key,
                                             V value) {
-        KeyValueRequestHandler<K, V> setHandler = router.resolveHandler(key, value);
+        KeyValueRequestHandler<K, V> setHandler = resolver.resolveHandler(CacheRequestMethod.SET, key, value);
         return setHandler.handle(key, value, Collections.emptyList(), keyValueStore).join();
     }
 
     public <K> CacheResponse<?> getCache(K key) {
 
-        KeyOnlyRequestHandler<K> getHandler = router.resolveHandler(key);
+        KeyOnlyRequestHandler<K> getHandler = resolver.resolveHandler(CacheRequestMethod.GET, key);
         return getHandler.handle(key, Collections.emptyList(), keyValueStore).join();
     }
 

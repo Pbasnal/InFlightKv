@@ -5,7 +5,7 @@ import com.bcorp.exceptions.HandlerNotFoundException;
 import java.util.HashMap;
 import java.util.Map;
 
-public class Router {
+public class Resolver {
 
     /// ## Using class of types as keys for Handlers
     /// There are multiple conditions based on which we want to resolve the handlers.
@@ -32,7 +32,7 @@ public class Router {
     // Operations that depend on BOTH key and value type (SET, PATCH, MERGE)
     private final Map<KeyValueHandlerKey, KeyValueRequestHandler<?, ?>> keyValueHandlers;
 
-    public Router() {
+    public Resolver() {
         this.keyOnlyHandlers = new HashMap<>();
         this.keyValueHandlers = new HashMap<>();
     }

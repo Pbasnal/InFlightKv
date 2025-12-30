@@ -22,51 +22,6 @@ public class JsonStoreOperations {
     ObjectMapper mapper = new ObjectMapper();
 
     @Test
-    public void testRandom() {
-
-//        CodecProvider codecProvider = new CodecProvider(Map.of(
-//           String.class, new StringCodec()
-//        ));
-//
-//        Router router = new Router();
-//        router.addRequestHandler(new CacheRoute<>(CacheRequestMethod.GET, String.class),
-//                new StringKeyGetRequestHandler(codecProvider));
-//
-//        router.addRequestHandler(new CacheRoute<>(CacheRequestMethod.SET, String.class),
-//                new StringSetRequestHandler(new StringCodec()));
-//
-//        KeyValueStore kvStore = new KeyValueStore();
-//
-//        String key = "a";
-//        String value = "value";
-//
-//        CacheRequest<String> req = new CacheRequest<>(key,
-//                CacheRequestMethod.SET,
-//                Optional.of(value),
-//                Collections.emptyList());
-//
-//        IHandleRequests<?> stringSetHandler = router.getHandler(req);
-//        CacheResponse cacheResponse = stringSetHandler
-//                .handle(req, kvStore)
-//                .join();
-//
-//        assert "value".equals(cacheResponse.data());
-//
-//        CacheRequest<String> getReq = new CacheRequest<>(key,
-//                CacheRequestMethod.GET,
-//                Optional.empty(),
-//                Collections.emptyList());
-//
-//        IHandleRequests<String> stringGetHandler = router.getHandler(getReq);
-//        cacheResponse = stringGetHandler
-//                .handle(req, kvStore)
-//                .join();
-//
-//        assert "value".equals(cacheResponse.data());
-    }
-
-
-    @Test
     public void testStagedProcessing() {
         String key = "key";
         String value = "value";
@@ -76,11 +31,11 @@ public class JsonStoreOperations {
                 String.class, new StringCodec()
         ));
 
-        Router router = new Router();
-        router.registerKeyOnlyHandler(String.class, new StringGetRequestHandlerHandler(codecProvider));
-        router.registerKeyValueHandler(String.class, String.class, new StringKeyStringValueSetHandlerHandler(codecProvider.getCodec(String.class)));
+        Resolver resolver = new Resolver();
+        resolver.registerKeyOnlyHandler(CacheRequestMethod.GET, String.class, new StringGetRequestHandlerHandler(codecProvider));
+        resolver.registerKeyValueHandler(CacheRequestMethod.SET, String.class, String.class, new StringKeyStringValueSetHandlerHandler(codecProvider.getCodec(String.class)));
 
-        KeyValueStoreApi kvApi = new KeyValueStoreApi(keyValueStore, router);
+        KeyValueStoreEngine kvApi = new KeyValueStoreEngine(keyValueStore, resolver);
         CacheResponse<String> setResponse = kvApi.setCache(key, value);
 
         CacheResponse<String> getResponse = (CacheResponse<String>) kvApi.getCache(key);
@@ -104,10 +59,10 @@ public class JsonStoreOperations {
                 ObjectNode.class, new JsonCodec()
         ));
 
-        Router router = new Router();
-        router.registerKeyOnlyHandler(String.class, new StringGetRequestHandlerHandler(codecProvider));
-        router.registerKeyValueHandler(String.class, ObjectNode.class, new StringKeyJsonValueSetHandlerHandler(codecProvider.getCodec(ObjectNode.class)));
-        KeyValueStoreApi kvApi = new KeyValueStoreApi(keyValueStore, router);
+        Resolver resolver = new Resolver();
+        resolver.registerKeyOnlyHandler(CacheRequestMethod.GET, String.class, new StringGetRequestHandlerHandler(codecProvider));
+        resolver.registerKeyValueHandler(CacheRequestMethod.SET, String.class, ObjectNode.class, new StringKeyJsonValueSetHandlerHandler(codecProvider.getCodec(ObjectNode.class)));
+        KeyValueStoreEngine kvApi = new KeyValueStoreEngine(keyValueStore, resolver);
 
 
         JsonNode node = mapper.readTree(valueAsJsonStr);
