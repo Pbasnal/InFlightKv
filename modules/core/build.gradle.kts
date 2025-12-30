@@ -26,6 +26,9 @@ dependencies {
     testImplementation("io.cucumber:cucumber-java:7.33.0")
     testImplementation("io.cucumber:cucumber-junit-platform-engine:7.15.0")
     testImplementation("org.junit.platform:junit-platform-suite:1.10.2")
+
+    testImplementation("org.mockito:mockito-core:5.12.0")
+    testImplementation("org.mockito:mockito-junit-jupiter:5.12.0")
 }
 
 tasks.test {
