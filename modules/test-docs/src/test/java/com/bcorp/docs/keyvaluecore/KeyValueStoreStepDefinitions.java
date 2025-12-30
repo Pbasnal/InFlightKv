@@ -22,7 +22,6 @@ public class KeyValueStoreStepDefinitions {
     private DataValue retrievedValue;
     private Exception caughtException;
     private long initialKeyCount;
-    private String lastSetKey; // Track the last key that was set
 
     @Before
     public void setUp() {
@@ -30,7 +29,6 @@ public class KeyValueStoreStepDefinitions {
         newKeyValueStore = null;
         retrievedValue = null;
         caughtException = null;
-        lastSetKey = null;
     }
 
     @Given("a new KeyValueStore instance")
@@ -43,16 +41,13 @@ public class KeyValueStoreStepDefinitions {
         DataKey dataKey = DataKey.from(key);
         DataValue dataValue = DataValue.fromString(value);
         keyValueStore.set(dataKey, dataValue, null).join();
-        lastSetKey = key; // Track the last key set
     }
 
     @Given("I set values for multiple keys:")
     public void iSetValuesForMultipleKeys(io.cucumber.datatable.DataTable dataTable) {
-        for (Map<String, String> row : dataTable.asMaps()) {
-            String key = row.get("key");
-            String value = row.get("value");
-            iSetAValueForKey(value, key);
-        }
+        dataTable.asMaps().forEach(row ->
+            iSetAValueForKey(row.get("value"), row.get("key"))
+        );
     }
 
     @Given("the KeyValueStore is initialized")
@@ -94,17 +89,9 @@ public class KeyValueStoreStepDefinitions {
         DataKey dataKey = DataKey.from(key);
         DataValue dataValue = DataValue.fromString(value);
         try {
-            CompletableFuture<DataValue> future = keyValueStore.set(dataKey, dataValue, (long) prevVersion);
-            future.join();
-            lastSetKey = key; // Track the last key set if successful
+            keyValueStore.set(dataKey, dataValue, (long) prevVersion).join();
         } catch (Exception e) {
-            // CompletableFuture.join() throws CompletionException with the actual exception as cause
-            Throwable cause = e.getCause();
-            if (cause != null && cause instanceof Exception) {
-                caughtException = (Exception) cause;
-            } else {
-                caughtException = e;
-            }
+            caughtException = e.getCause() instanceof Exception ? (Exception) e.getCause() : e;
         }
     }
 
@@ -115,10 +102,6 @@ public class KeyValueStoreStepDefinitions {
         keyValueStore.remove(dataKey).join();
     }
 
-    @When("I check the total key count")
-    public void iCheckTheTotalKeyCount() {
-        // This is just a trigger step, actual check is in Then
-    }
 
     @When("I create a new KeyValueStore instance")
     public void iCreateANewKeyValueStoreInstance() {
@@ -141,11 +124,6 @@ public class KeyValueStoreStepDefinitions {
         // This step documents that operations are async
     }
 
-    @When("I remove key {string}")
-    public void iRemoveKey(String key) {
-        DataKey dataKey = DataKey.from(key);
-        keyValueStore.remove(dataKey).join();
-    }
 
     @Then("the retrieved value should be {string}")
     public void theRetrievedValueShouldBe(String expectedValue) {
@@ -160,12 +138,7 @@ public class KeyValueStoreStepDefinitions {
 
     @Then("the value should have version {int}")
     public void theValueShouldHaveVersion(int expectedVersion) {
-        // If retrievedValue is null, retrieve the last set key's value
-        if (retrievedValue == null && lastSetKey != null) {
-            DataKey dataKey = DataKey.from(lastSetKey);
-            retrievedValue = keyValueStore.get(dataKey).join();
-        }
-        assertNotNull(retrievedValue, "Retrieved value should not be null");
+        assertNotNull(retrievedValue, "Value must be retrieved first");
         assertEquals(expectedVersion, retrievedValue.version(), "Version should match");
     }
 

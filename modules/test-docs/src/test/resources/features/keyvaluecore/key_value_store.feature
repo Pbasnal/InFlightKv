@@ -3,32 +3,26 @@ Feature: KeyValueStore Usage and Limitations
   I want to understand how to use KeyValueStore and its limitations
   So that I can use it effectively in my application
 
-  Background: Core KeyValueStore
-    Documentation: KeyValueStore supports storing and retrieving key-value pairs using DataKey and DataValue types
-
   Background: Data Types and Internal Representation
     Documentation: KeyValueStore operates on well-defined data types for consistent storage and retrieval
     The KeyValueStore uses two primary data structures:
     - DataKey: Represents keys using String type (current implementation)
     - DataValue: Represents values using byte[] array for flexible data storage
     These types ensure type safety and consistent behavior across all operations.
-
-    The key "test-key" is converted to DataKey using DataKey.from("test-key") before calling keyValueStore
-    The value "Hello World" is converted to DataValue using DataValue.fromString("Hello World")
-    which creates a byte[] representation before calling keyValueStore
+    Values are converted to byte[] arrays for storage, allowing any serializable data type.
+    Keys remain as strings in DataKey format for consistent key management.
 
   Background:
     Given a new KeyValueStore instance
 
-  Scenario: Basic Set and Get Operations using keyValueStore.set and keyValueStore.get
+  Scenario: Basic Set and Get Operations
     Given I set a value "Hello World" for key "test-key"
     When I get the value for key "test-key"
     Then the retrieved value should be "Hello World"
     And the value should have version 0
 
   Scenario: Setting a Value Without Previous Version
-    Documentation: When setting a value with null previous version, it performs an insert or update without checking
-    previous version and increments the version by 1.
+    Documentation: When setting a value with null previous version, it performs an insert or update
     Given I set a value "First Value" for key "version-test"
     When I set a value "Second Value" for key "version-test"
     Then the value for key "version-test" should be "Second Value"
@@ -37,7 +31,6 @@ Feature: KeyValueStore Usage and Limitations
   Scenario: Optimistic Locking with Version Control
     Documentation: KeyValueStore supports optimistic locking using version numbers
     Given I set a value "Initial Value" for key "versioned-key"
-    And I get the value for key "versioned-key"
     When I set a value "Updated Value" for key "versioned-key" with previous version 0
     Then the value for key "versioned-key" should be "Updated Value"
     And the value should have version 1
@@ -45,7 +38,6 @@ Feature: KeyValueStore Usage and Limitations
   Scenario: Concurrent Update Detection
     Documentation: KeyValueStore throws ConcurrentUpdateException when version mismatch occurs
     Given I set a value "Value 1" for key "concurrent-key"
-    And I get the value for key "concurrent-key"
     When I set a value "Value 2" for key "concurrent-key" with previous version 999
     Then the operation should fail with ConcurrentUpdateException
 
@@ -69,19 +61,16 @@ Feature: KeyValueStore Usage and Limitations
       | key-2    | value-2         |
       | key-3    | value-3         |
       | key-100  | value-100       |
-    When I check the total key count
     Then the total key count should be 4
 
   Scenario: Version Increment on Updates
     Documentation: Each update operation increments the version number
     Given I set a value "V0" for key "version-tracker"
-    And I get the value for key "version-tracker"
-    And the value should have version 0
     When I set a value "V1" for key "version-tracker"
-    And I get the value for key "version-tracker"
+    When I get the value for key "version-tracker"
     Then the value should have version 1
     When I set a value "V2" for key "version-tracker"
-    And I get the value for key "version-tracker"
+    When I get the value for key "version-tracker"
     Then the value should have version 2
 
   Scenario: Overwriting Existing Values
@@ -135,7 +124,7 @@ Feature: KeyValueStore Usage and Limitations
     Documentation: KeyValueStore does not support transactions. Operations are independent and cannot be rolled back.
     Given I set a value "Tx1" for key "tx-key-1"
     And I set a value "Tx2" for key "tx-key-2"
-    When I remove key "tx-key-1"
+    When I remove the key "tx-key-1"
     Then key "tx-key-1" should not exist
     And key "tx-key-2" should still exist
 
@@ -150,6 +139,5 @@ Feature: KeyValueStore Usage and Limitations
     Documentation: KeyValueStore stores all data in memory as DataKey-DataValue pairs. All data is stored in memory; large datasets may cause memory issues.
     Each DataValue contains byte[] data plus metadata (dataType, lastAccessTimeMs, version), consuming additional memory beyond the raw data.
     Given I set multiple values for keys from "mem-key-1" to "mem-key-1000"
-    When I check the total key count
     Then the total key count should be 1000
 
