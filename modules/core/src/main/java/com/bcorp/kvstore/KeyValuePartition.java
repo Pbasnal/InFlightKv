@@ -33,11 +33,13 @@ public class KeyValuePartition {
                 resultFuture.complete(null);
             } else {
                 // to update the last access time
-                keyValueStore.put(key, new DataValue(value.data(),
+                DataValue updatedValue = new DataValue(value.data(),
                         value.dataType(),
                         System.currentTimeMillis(),
-                        value.version()));
-                resultFuture.complete(value);
+                        value.version());
+
+                keyValueStore.put(key, updatedValue);
+                resultFuture.complete(updatedValue);
             }
         });
         return resultFuture;
@@ -54,7 +56,7 @@ public class KeyValuePartition {
                     DataValue updatedValue = new DataValue(value.data(),
                             value.dataType(),
                             System.currentTimeMillis(),
-                            0);
+                            0L);
                     keyValueStore.put(key, updatedValue); // returns null if the value doesn't exist
                     totalKeys.incrementAndGet();
                     resultFuture.complete(updatedValue);
