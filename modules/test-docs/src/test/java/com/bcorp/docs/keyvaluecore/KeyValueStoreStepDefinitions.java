@@ -21,9 +21,6 @@ public class KeyValueStoreStepDefinitions {
     private KeyValueStore newKeyValueStore;
     private DataValue retrievedValue;
     private Exception caughtException;
-    private Map<String, DataValue> storedValues;
-    private long initialAccessTime;
-    private long lastAccessTime;
     private long initialKeyCount;
     private String lastSetKey; // Track the last key that was set
 
@@ -33,7 +30,6 @@ public class KeyValueStoreStepDefinitions {
         newKeyValueStore = null;
         retrievedValue = null;
         caughtException = null;
-        storedValues = new HashMap<>();
         lastSetKey = null;
     }
 
@@ -42,22 +38,12 @@ public class KeyValueStoreStepDefinitions {
         keyValueStore = new KeyValueStore();
     }
 
-    @Given("I set a value {string} for key {string} with `keyValueStore.set\\(dataKey, dataValue, null)`")
+    @Given("I set a value {string} for key {string}")
     public void iSetAValueForKey(String value, String key) {
         DataKey dataKey = DataKey.from(key);
         DataValue dataValue = DataValue.fromString(value);
         keyValueStore.set(dataKey, dataValue, null).join();
-        storedValues.put(key, dataValue);
         lastSetKey = key; // Track the last key set
-    }
-
-    @Given("I retrieve the value for key {string}")
-    public void iRetrieveTheValueForKey(String key) {
-        DataKey dataKey = DataKey.from(key);
-        retrievedValue = keyValueStore.get(dataKey).join();
-        if (retrievedValue != null) {
-            initialAccessTime = retrievedValue.lastAccessTimeMs();
-        }
     }
 
     @Given("I set values for multiple keys:")
@@ -89,7 +75,7 @@ public class KeyValueStoreStepDefinitions {
         // Extract number from keys like "mem-key-1" to "mem-key-1000"
         int start = Integer.parseInt(startKey.substring(startKey.lastIndexOf('-') + 1));
         int end = Integer.parseInt(endKey.substring(endKey.lastIndexOf('-') + 1));
-        
+
         for (int i = start; i <= end; i++) {
             String key = "mem-key-" + i;
             String value = "value-" + i;
@@ -101,25 +87,6 @@ public class KeyValueStoreStepDefinitions {
     public void iGetTheValueForKey(String key) {
         DataKey dataKey = DataKey.from(key);
         retrievedValue = keyValueStore.get(dataKey).join();
-    }
-
-    @When("I set a value {string} for key {string} with no previous version")
-    public void iSetAValueForKeyWithNoPreviousVersionWhen(String value, String key) {
-        DataKey dataKey = DataKey.from(key);
-        DataValue dataValue = DataValue.fromString(value);
-        keyValueStore.set(dataKey, dataValue, null).join();
-        lastSetKey = key; // Track the last key set
-    }
-
-    @When("I set a value {string} for key {string} with previous version matching the current version")
-    public void iSetAValueForKeyWithPreviousVersionMatchingWhen(String value, String key) {
-        DataKey dataKey = DataKey.from(key);
-        DataValue currentValue = keyValueStore.get(dataKey).join();
-        if (currentValue != null) {
-            DataValue newValue = DataValue.fromString(value);
-            keyValueStore.set(dataKey, newValue, currentValue.version()).join();
-            lastSetKey = key; // Track the last key set
-        }
     }
 
     @When("I set a value {string} for key {string} with previous version {int}")
@@ -183,7 +150,7 @@ public class KeyValueStoreStepDefinitions {
     @Then("the retrieved value should be {string}")
     public void theRetrievedValueShouldBe(String expectedValue) {
         if (expectedValue == null || expectedValue.isEmpty()) {
-            assertNull(retrievedValue, "Retrieved value should be null");
+            assertEquals(0, retrievedValue.data().length, "Retrieved value should be null");
         } else {
             assertNotNull(retrievedValue, "Retrieved value should not be null");
             String actualValue = new String(retrievedValue.data(), StandardCharsets.UTF_8);
@@ -206,17 +173,19 @@ public class KeyValueStoreStepDefinitions {
     public void theValueForKeyShouldBe(String key, String expectedValue) {
         DataKey dataKey = DataKey.from(key);
         DataValue value = keyValueStore.get(dataKey).join();
+
         assertNotNull(value, "Value should not be null");
         String actualValue = new String(value.data(), StandardCharsets.UTF_8);
         assertEquals(expectedValue, actualValue, "Value should match expected");
+        retrievedValue = value;
     }
 
     @Then("the operation should fail with ConcurrentUpdateException")
     public void theOperationShouldFailWithConcurrentUpdateException() {
         assertNotNull(caughtException, "Exception should have been caught");
-        assertTrue(caughtException instanceof ConcurrentUpdateException || 
-                   caughtException.getCause() instanceof ConcurrentUpdateException,
-                   "Exception should be ConcurrentUpdateException");
+        assertTrue(caughtException instanceof ConcurrentUpdateException ||
+                        caughtException.getCause() instanceof ConcurrentUpdateException,
+                "Exception should be ConcurrentUpdateException");
     }
 
     @Then("getting the value for key {string} should return null")
@@ -226,10 +195,10 @@ public class KeyValueStoreStepDefinitions {
         assertNull(value, "Value should be null after removal");
     }
 
-    @Then("the total key count should decrease")
-    public void theTotalKeyCountShouldDecrease() {
+    @Then("the total key count should decrease by {int}")
+    public void theTotalKeyCountShouldDecrease(int decreaseInKeyCount) {
         long currentKeyCount = keyValueStore.totalKeys();
-        assertTrue(currentKeyCount < initialKeyCount, "Key count should have decreased");
+        assertTrue(initialKeyCount - currentKeyCount == decreaseInKeyCount, "Key count should have decreased by " + decreaseInKeyCount);
     }
 
     @Then("the total key count should be {int}")
@@ -262,10 +231,10 @@ public class KeyValueStoreStepDefinitions {
         assertNotNull(valueAfterAccess, "Value should exist");
         // The access time should be recent (within last second)
         long currentTime = System.currentTimeMillis();
-        assertTrue(valueAfterAccess.lastAccessTimeMs() <= currentTime, 
-                   "Last access time should be set");
-        assertTrue(valueAfterAccess.lastAccessTimeMs() > currentTime - 1000, 
-                   "Last access time should be recent");
+        assertTrue(valueAfterAccess.lastAccessTimeMs() <= currentTime,
+                "Last access time should be set");
+        assertTrue(valueAfterAccess.lastAccessTimeMs() > currentTime - 1000,
+                "Last access time should be recent");
     }
 
     @Then("key {string} should not exist")
