@@ -1,0 +1,20 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Cucumber Tests" type="JUnit" factoryName="JUnit">
+    <module name="InFlightKv.modules.test-docs.test" />
+    <option name="PACKAGE_NAME" value="com.bcorp.docs" />
+    <option name="MAIN_CLASS_NAME" value="com.bcorp.docs.keyvaluecore.KeyValueStoreCucumberTest" />
+    <option name="METHOD_NAME" value="" />
+    <option name="TEST_OBJECT" value="class" />
+    <option name="VM_PARAMETERS" />
+    <option name="PARAMETERS" value="" />
+    <option name="TEST_SEARCH_SCOPE">
+      <value defaultName="moduleWithDependencies" />
+    </option>
+    <patterns>
+      <pattern testClass="com.bcorp.documentation.KeyValueStoreCucumberTest" />
+    </patterns>
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

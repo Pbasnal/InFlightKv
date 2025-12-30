@@ -8,7 +8,6 @@ import java.util.concurrent.CompletableFuture;
 public class KeyValueStore {
     private final KeyValuePartition[] partitions;
 
-
     public KeyValueStore() {
         this.partitions = new KeyValuePartition[32];
         for (int i = 0; i < this.partitions.length; i++) {
