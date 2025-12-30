@@ -1,4 +1,4 @@
-package com.bcorp.api;
+package com.bcorp.api.filters;
 
 public interface Filter {}
 

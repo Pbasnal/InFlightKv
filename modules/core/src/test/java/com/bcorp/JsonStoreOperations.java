@@ -1,6 +1,7 @@
 package com.bcorp;
 
 import com.bcorp.api.*;
+import com.bcorp.api.handlers.HandlerResolver;
 import com.bcorp.apiimpl.ResponseHolder;
 import com.bcorp.apiimpl.StringGetRequestHandlerHandler;
 import com.bcorp.apiimpl.StringKeyJsonValueSetHandlerHandler;

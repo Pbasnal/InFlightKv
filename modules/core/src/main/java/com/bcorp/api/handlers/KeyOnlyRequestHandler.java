@@ -1,5 +1,6 @@
-package com.bcorp.api;
+package com.bcorp.api.handlers;
 
+import com.bcorp.api.filters.Filter;
 import com.bcorp.kvstore.KeyValueStore;
 
 import java.util.List;

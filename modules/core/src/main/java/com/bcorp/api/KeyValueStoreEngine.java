@@ -1,5 +1,10 @@
 package com.bcorp.api;
 
+import com.bcorp.api.filters.Filter;
+import com.bcorp.api.filters.VersionFilter;
+import com.bcorp.api.handlers.HandlerResolver;
+import com.bcorp.api.handlers.KeyOnlyRequestHandler;
+import com.bcorp.api.handlers.KeyValueRequestHandler;
 import com.bcorp.kvstore.KeyValueStore;
 
 import java.util.Collections;
@@ -10,9 +15,9 @@ public class KeyValueStoreEngine {
     private final HandlerResolver handlerResolver;
 
     public KeyValueStoreEngine(KeyValueStore _keyValueStore,
-                               HandlerResolver _Handler_resolver) {
+                               HandlerResolver _handlerResolver) {
         this.keyValueStore = _keyValueStore;
-        this.handlerResolver = _Handler_resolver;
+        this.handlerResolver = _handlerResolver;
     }
 
     public <K, V, R> R setCache(K key,
@@ -29,6 +34,11 @@ public class KeyValueStoreEngine {
     }
 
     public <K, R> R getCache(K key, CacheRequestMethod method) {
+        KeyOnlyRequestHandler<K, R> getHandler = handlerResolver.resolveHandler(method, key);
+        return getHandler.handle(key, Collections.emptyList(), keyValueStore).join();
+    }
+
+    public <K, R> R removeCache(K key, CacheRequestMethod method) {
         KeyOnlyRequestHandler<K, R> getHandler = handlerResolver.resolveHandler(method, key);
         return getHandler.handle(key, Collections.emptyList(), keyValueStore).join();
     }
