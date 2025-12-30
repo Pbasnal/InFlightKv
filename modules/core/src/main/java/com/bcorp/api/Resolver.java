@@ -55,7 +55,7 @@ public class Resolver {
     @SuppressWarnings("unchecked")
     public <K, V> KeyValueRequestHandler<K, V> resolveHandler(CacheRequestMethod method, K key, V value) {
         return (KeyValueRequestHandler<K, V>)
-                resolve(keyOnlyHandlers, new KeyValueHandlerKey(method, key.getClass(), value.getClass()));
+                resolve(keyValueHandlers, new KeyValueHandlerKey(method, key.getClass(), value.getClass()));
     }
 
 
