@@ -10,7 +10,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.io.IOException;
-import java.util.Optional;
 
 public class JsonCodec implements Codec<JsonNode> {
     ObjectMapper mapper = new ObjectMapper();
@@ -53,6 +52,4 @@ public class JsonCodec implements Codec<JsonNode> {
             throw new JsonSerializationFailed(e);
         }
     }
-
-
 }

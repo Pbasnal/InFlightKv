@@ -35,13 +35,13 @@ public class JsonStoreOperations {
         ));
 
         HandlerResolver handlerResolver = new HandlerResolver();
-        handlerResolver.registerKeyOnlyHandler(CacheRequestMethod.GET, String.class, new StringGetRequestHandlerHandler(codecProvider));
-        handlerResolver.registerKeyValueHandler(CacheRequestMethod.SET, String.class, String.class, new StringKeyStringValueSetHandlerHandler(codecProvider.getCodec(String.class)));
+        handlerResolver.registerKeyOnlyHandler(CacheRequestMethod.get(), String.class, new StringGetRequestHandlerHandler(codecProvider));
+        handlerResolver.registerKeyValueHandler(CacheRequestMethod.set(), String.class, String.class, new StringKeyStringValueSetHandlerHandler(codecProvider.getCodec(String.class)));
 
         KeyValueStoreEngine kvApi = new KeyValueStoreEngine(keyValueStore, handlerResolver);
-        CacheResponse<String> setResponse = kvApi.setCache(key, value);
+        CacheResponse<String> setResponse = kvApi.setCache(key, value, null, CacheRequestMethod.set());
 
-        CacheResponse<String> getResponse = (CacheResponse<String>) kvApi.getCache(key);
+        CacheResponse<String> getResponse = (CacheResponse<String>) kvApi.getCache(key, CacheRequestMethod.get());
 
         assert setResponse.data().equals(getResponse.data());
     }
@@ -63,14 +63,14 @@ public class JsonStoreOperations {
         ));
 
         HandlerResolver handlerResolver = new HandlerResolver();
-        handlerResolver.registerKeyOnlyHandler(CacheRequestMethod.GET, String.class, new StringGetRequestHandlerHandler(codecProvider));
-        handlerResolver.registerKeyValueHandler(CacheRequestMethod.SET, String.class, ObjectNode.class, new StringKeyJsonValueSetHandlerHandler(codecProvider.getCodec(ObjectNode.class)));
+        handlerResolver.registerKeyOnlyHandler(CacheRequestMethod.get(), String.class, new StringGetRequestHandlerHandler(codecProvider));
+        handlerResolver.registerKeyValueHandler(CacheRequestMethod.set(), String.class, ObjectNode.class, new StringKeyJsonValueSetHandlerHandler(codecProvider.getCodec(ObjectNode.class)));
         KeyValueStoreEngine kvApi = new KeyValueStoreEngine(keyValueStore, handlerResolver);
 
 
         JsonNode node = mapper.readTree(valueAsJsonStr);
-        CacheResponse<JsonNode> setResponse = kvApi.setCache(key, node);
-        CacheResponse<JsonNode> getResponse = (CacheResponse<JsonNode>) kvApi.getCache(key);
+        CacheResponse<JsonNode> setResponse = kvApi.setCache(key, node, null, CacheRequestMethod.set());
+        CacheResponse<JsonNode> getResponse = (CacheResponse<JsonNode>) kvApi.getCache(key, CacheRequestMethod.get());
 
         assert setResponse.data().equals(getResponse.data());
 
@@ -79,8 +79,8 @@ public class JsonStoreOperations {
         valueAsJsonStr = mapper.writeValueAsString(wrappedData2);
 
         node = mapper.readTree(valueAsJsonStr);
-        setResponse = kvApi.setCache(key, node);
-        getResponse = (CacheResponse<JsonNode>) kvApi.getCache(key);
+        setResponse = kvApi.setCache(key, node, null, CacheRequestMethod.set());
+        getResponse = (CacheResponse<JsonNode>) kvApi.getCache(key, CacheRequestMethod.get());
 
         WrapperA expectedObject = new WrapperA(2, List.of(12, 13, 14, 15));
         valueAsJsonStr = mapper.writeValueAsString(expectedObject);

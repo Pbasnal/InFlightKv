@@ -16,15 +16,10 @@ public class KeyValueStoreEngine {
     }
 
     public <K, V, R> R setCache(K key,
-                                V value) {
-        KeyValueRequestHandler<K, V, R> setHandler = handlerResolver.resolveHandler(CacheRequestMethod.SET, key, value);
-        return setHandler.handle(key, value, Collections.emptyList(), keyValueStore).join();
-    }
-
-    public <K, V, R> R setCache(K key,
                                 V value,
-                                Long ifVersion) {
-        KeyValueRequestHandler<K, V, R> setHandler = handlerResolver.resolveHandler(CacheRequestMethod.SET, key, value);
+                                Long ifVersion,
+                                CacheRequestMethod method) {
+        KeyValueRequestHandler<K, V, R> setHandler = handlerResolver.resolveHandler(method, key, value);
 
         List<Filter> filters = ifVersion != null ?
                 List.of(new VersionFilter(ifVersion)) :
@@ -33,9 +28,8 @@ public class KeyValueStoreEngine {
         return setHandler.handle(key, value, filters, keyValueStore).join();
     }
 
-    public <K, R> R getCache(K key) {
-
-        KeyOnlyRequestHandler<K, R> getHandler = handlerResolver.resolveHandler(CacheRequestMethod.GET, key);
+    public <K, R> R getCache(K key, CacheRequestMethod method) {
+        KeyOnlyRequestHandler<K, R> getHandler = handlerResolver.resolveHandler(method, key);
         return getHandler.handle(key, Collections.emptyList(), keyValueStore).join();
     }
 

@@ -26,7 +26,7 @@ public class CacheHandlerUtils {
             return CacheResponse.notFound();
         }
 
-        Either<JsonNode, CacheError> decodingResponse = decodeSetResponse(cacheResponse, jsonCodec);
+        Either<JsonNode, CacheError> decodingResponse = decodeDataValue(cacheResponse, jsonCodec);
         if (!decodingResponse.isSuccess()) {
             return CacheResponse.failure(decodingResponse.getErrorResponse());
         }
@@ -42,7 +42,7 @@ public class CacheHandlerUtils {
         return CacheResponse.success(serializingJsonData.getSuccessResponse(), cacheResponse.version());
     }
 
-    public static Either<JsonNode, CacheError> decodeSetResponse(DataValue dataValue, JsonCodec jsonCodec) {
+    public static Either<JsonNode, CacheError> decodeDataValue(DataValue dataValue, JsonCodec jsonCodec) {
         try {
             JsonNode node = jsonCodec.decode(dataValue);
             return Either.success(node);
@@ -57,6 +57,14 @@ public class CacheHandlerUtils {
             return Either.success(jsonBody);
         } catch (JsonDecodingFailed e) {
             return Either.failed(new CacheError(CacheErrorCode.WRONG_DATA_TYPE, "Failed to serialize json data to string"));
+        }
+    }
+
+    public static Either<DataValue, CacheError> encodeJsonNode(JsonNode node, JsonCodec jsonCodec) {
+        try {
+            return Either.success(jsonCodec.encode(node));
+        } catch (JsonDecodingFailed e) {
+            return Either.failed(new CacheError(CacheErrorCode.ENCODING_FAILURE, "Failed to encode json node to byte[]"));
         }
     }
 }
