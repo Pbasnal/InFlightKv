@@ -1,17 +1,13 @@
 package InFlightKv.kvengine;
 
 import InFlightKv.handlers.JsonStringGetValueHandler;
-import InFlightKv.handlers.JsonStringPutValueHandler;
+import InFlightKv.handlers.JsonStringSetValueHandler;
+//import InFlightKv.handlers.JsonStringPutValueHandler;
 import com.bcorp.api.*;
-import com.bcorp.codec.CodecProvider;
 import com.bcorp.codec.JsonCodec;
-import com.bcorp.codec.StringCodec;
 import com.bcorp.kvstore.KeyValueStore;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-
-import java.util.Map;
 
 @Configuration
 public class KeyValueStoreEngineConfiguration {
@@ -26,14 +22,18 @@ public class KeyValueStoreEngineConfiguration {
 
         HandlerResolver handlerResolver = new HandlerResolver();
 
-        handlerResolver.registerKeyOnlyHandler(CacheRequestMethod.GET, String.class,
+        handlerResolver.registerKeyOnlyHandler(CacheRequestMethod.get(), String.class,
                 new JsonStringGetValueHandler(new JsonCodec()));
 
 //        handlerResolver.registerKeyOnlyHandler(CacheRequestMethod.REMOVE, String.class,
 //                new StringRemoveRequestHandlerHandler(new JsonCodec()));
 
-        handlerResolver.registerKeyValueHandler(CacheRequestMethod.SET, String.class, String.class,
-                new JsonStringPutValueHandler(new JsonCodec()));
+        handlerResolver.registerKeyValueHandler(CacheRequestMethod.set(), String.class, String.class,
+                new JsonStringSetValueHandler(new JsonCodec(), false));
+
+        // Patch is a custom defined type here which is not part of the core engine.
+        handlerResolver.registerKeyValueHandler(CustomCacheRequestMethod.patch(), String.class, String.class,
+                new JsonStringSetValueHandler(new JsonCodec(), true));
 
         return handlerResolver;
     }

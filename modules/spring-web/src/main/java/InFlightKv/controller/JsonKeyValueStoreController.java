@@ -1,7 +1,9 @@
 package InFlightKv.controller;
 
+import InFlightKv.kvengine.CustomCacheRequestMethod;
 import com.bcorp.CacheError;
 import com.bcorp.CacheResponse;
+import com.bcorp.api.CacheRequestMethod;
 import com.bcorp.api.KeyValueStoreEngine;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -20,7 +22,7 @@ public class JsonKeyValueStoreController {
 
     @GetMapping("/{key}")
     public Mono<ResponseEntity<CacheResponse<String>>> get(@PathVariable String key) {
-        return Mono.fromCallable(() -> kvEngine.<String, CacheResponse<String>>getCache(key))
+        return Mono.fromCallable(() -> kvEngine.<String, CacheResponse<String>>getCache(key, CacheRequestMethod.get()))
                 .map(this::convertToControllerResponse);
     }
 
@@ -28,7 +30,15 @@ public class JsonKeyValueStoreController {
     public Mono<ResponseEntity<CacheResponse<String>>> put(@PathVariable String key,
                                                            @RequestBody Mono<String> jsonBody,
                                                            @RequestParam(required = false) Long ifVersion) {
-        return jsonBody.map(strBody -> kvEngine.<String, String, CacheResponse<String>>setCache(key, strBody, ifVersion))
+        return jsonBody.map(strBody -> kvEngine.<String, String, CacheResponse<String>>setCache(key, strBody, ifVersion, CacheRequestMethod.set()))
+                .map(this::convertToControllerResponse);
+    }
+
+    @PatchMapping("/{key}")
+    public Mono<ResponseEntity<CacheResponse<String>>> patch(@PathVariable String key,
+                                                           @RequestBody Mono<String> jsonBody,
+                                                           @RequestParam(required = false) Long ifVersion) {
+        return jsonBody.map(strBody -> kvEngine.<String, String, CacheResponse<String>>setCache(key, strBody, ifVersion, CustomCacheRequestMethod.patch()))
                 .map(this::convertToControllerResponse);
     }
 
