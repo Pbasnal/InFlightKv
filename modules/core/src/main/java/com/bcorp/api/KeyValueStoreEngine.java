@@ -15,12 +15,6 @@ public class KeyValueStoreEngine {
         this.handlerResolver = _Handler_resolver;
     }
 
-//    public <K, V, R> R setCache(K key,
-//                                V value) {
-//        KeyValueRequestHandler<K, V, R> setHandler = handlerResolver.resolveHandler(CacheRequestMethod.SET, key, value);
-//        return setHandler.handle(key, value, Collections.emptyList(), keyValueStore).join();
-//    }
-
     public <K, V, R> R setCache(K key,
                                 V value,
                                 Long ifVersion,
