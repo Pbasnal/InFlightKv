@@ -1,6 +1,9 @@
-package com.bcorp.api;
+package com.bcorp.apiimpl;
 
 import com.bcorp.CacheResponse;
+import com.bcorp.api.Filter;
+import com.bcorp.api.KeyValueRequestHandler;
+import com.bcorp.api.VersionFilter;
 import com.bcorp.codec.Codec;
 import com.bcorp.kvstore.KeyValueStore;
 import com.bcorp.pojos.DataKey;
@@ -10,9 +13,10 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-public class StringKeyJsonValueSetHandlerHandler implements KeyValueRequestHandler<String, ObjectNode> {
+public class StringKeyJsonValueSetHandlerHandler implements KeyValueRequestHandler<String, ObjectNode, CacheResponse<ObjectNode>> {
 
     private final Codec<ObjectNode> jsonCodec;
+
     public StringKeyJsonValueSetHandlerHandler(Codec<ObjectNode> _codec) {
         this.jsonCodec = _codec;
     }
@@ -22,10 +26,25 @@ public class StringKeyJsonValueSetHandlerHandler implements KeyValueRequestHandl
 
         DataKey dataKey = new DataKey(key);
 
+        // Check for version filter
+        Long expectedVersion = filters.stream()
+                .filter(f -> f instanceof VersionFilter)
+                .map(f -> ((VersionFilter) f).version())
+                .findFirst()
+                .orElse(null);
+
         return keyValueStore.get(dataKey).thenCompose((existingData) -> {
 
             if (existingData == null) {
+                // New key - use provided version or null
                 return keyValueStore.set(dataKey, jsonCodec.encode(value), null);
+            }
+
+            // Existing key - check if version was explicitly provided
+            Long versionToUse = expectedVersion != null ? expectedVersion : existingData.version();
+
+            if (versionToUse != existingData.version()) {
+                return CompletableFuture.completedFuture(null);
             }
 
             ObjectNode existingNode = jsonCodec.decode(existingData);
@@ -34,8 +53,11 @@ public class StringKeyJsonValueSetHandlerHandler implements KeyValueRequestHandl
 
             return keyValueStore.set(dataKey, mergedDataValue, existingData.version());
         }).thenApply(v -> {
+            if (v == null) {
+                return CacheResponse.notFound();
+            }
             ObjectNode node = jsonCodec.decode(v);
-            return new CacheResponse<>(node, v.version());
+            return CacheResponse.success(node, v.version());
         });
     }
 
@@ -55,7 +77,7 @@ public class StringKeyJsonValueSetHandlerHandler implements KeyValueRequestHandl
         ObjectNode result = mainNode.deepCopy();
 
         // 4. Use putAll for O(N) shallow replacement
-        result.setAll((ObjectNode) updateNode);
+        result.setAll(updateNode);
 
         return result;
     }

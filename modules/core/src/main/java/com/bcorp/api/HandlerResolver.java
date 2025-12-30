@@ -5,7 +5,7 @@ import com.bcorp.exceptions.HandlerNotFoundException;
 import java.util.HashMap;
 import java.util.Map;
 
-public class Resolver {
+public class HandlerResolver {
 
     /// ## Using class of types as keys for Handlers
     /// There are multiple conditions based on which we want to resolve the handlers.
@@ -27,41 +27,41 @@ public class Resolver {
     /// for the keys.
 
     // Operations that depend ONLY on key type (GET, REMOVE, EXISTS)
-    private final Map<KeyOnlyHandlerKey, KeyOnlyRequestHandler<?>> keyOnlyHandlers;
+    private final Map<KeyOnlyHandlerKey, KeyOnlyRequestHandler<?, ?>> keyOnlyHandlers;
 
     // Operations that depend on BOTH key and value type (SET, PATCH, MERGE)
-    private final Map<KeyValueHandlerKey, KeyValueRequestHandler<?, ?>> keyValueHandlers;
+    private final Map<KeyValueHandlerKey, KeyValueRequestHandler<?, ?, ?>> keyValueHandlers;
 
-    public Resolver() {
+    public HandlerResolver() {
         this.keyOnlyHandlers = new HashMap<>();
         this.keyValueHandlers = new HashMap<>();
     }
 
-    public <K> void registerKeyOnlyHandler(
+    public <K, R> void registerKeyOnlyHandler(
             CacheRequestMethod method,
             Class<K> keyClass,
-            KeyOnlyRequestHandler<K> handler) {
+            KeyOnlyRequestHandler<K, R> handler) {
         keyOnlyHandlers.put(new KeyOnlyHandlerKey(method, keyClass), handler);
     }
 
-    public <K, V> void registerKeyValueHandler(
+    public <K, V, R> void registerKeyValueHandler(
             CacheRequestMethod method,
             Class<K> keyClass,
             Class<V> valueClass,
-            KeyValueRequestHandler<K, V> handler) {
+            KeyValueRequestHandler<K, V, R> handler) {
         keyValueHandlers.put(new KeyValueHandlerKey(method, keyClass, valueClass), handler);
     }
 
     @SuppressWarnings("unchecked")
-    public <K, V> KeyValueRequestHandler<K, V> resolveHandler(CacheRequestMethod method, K key, V value) {
-        return (KeyValueRequestHandler<K, V>)
+    public <K, V, R> KeyValueRequestHandler<K, V, R> resolveHandler(CacheRequestMethod method, K key, V value) {
+        return (KeyValueRequestHandler<K, V, R>)
                 resolve(keyValueHandlers, new KeyValueHandlerKey(method, key.getClass(), value.getClass()));
     }
 
 
     @SuppressWarnings("unchecked")
-    public <K> KeyOnlyRequestHandler<K> resolveHandler(CacheRequestMethod method, K key) {
-         return (KeyOnlyRequestHandler<K>)
+    public <K, R> KeyOnlyRequestHandler<K, R> resolveHandler(CacheRequestMethod method, K key) {
+        return (KeyOnlyRequestHandler<K, R>)
                 resolve(keyOnlyHandlers, new KeyOnlyHandlerKey(method, key.getClass()));
     }
 

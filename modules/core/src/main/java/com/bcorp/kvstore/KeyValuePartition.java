@@ -5,6 +5,7 @@ import com.bcorp.exceptions.KeyNotFoundException;
 import com.bcorp.pojos.DataValue;
 import com.bcorp.pojos.DataKey;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.*;
@@ -49,7 +50,7 @@ public class KeyValuePartition {
         CompletableFuture<DataValue> resultFuture = new CompletableFuture<>();
 
         eventLoop.execute(() -> {
-            switch (operationType(key, expectedOldVersion)) {
+            switch (operationType(key, expectedOldVersion, value)) {
                 case INSERT -> {
                     DataValue updatedValue = new DataValue(value.data(),
                             value.dataType(),
@@ -60,14 +61,15 @@ public class KeyValuePartition {
                     resultFuture.complete(updatedValue);
                 }
                 case UPDATE -> {
-                    DataValue updatedValue = keyValueStore.put(key, new DataValue(value.data(),
+                    keyValueStore.put(key, new DataValue(value.data(),
                             value.dataType(),
                             System.currentTimeMillis(),
                             keyValueStore.get(key).version() + 1));
-                    resultFuture.complete(updatedValue);
+                    resultFuture.complete(keyValueStore.get(key));
 
                 }
-                default -> resultFuture.completeExceptionally(new ConcurrentUpdateException());
+                case SKIP -> resultFuture.complete(keyValueStore.get(key));
+                case VERSION_MISMATCH -> resultFuture.completeExceptionally(new ConcurrentUpdateException());
             }
         });
 
@@ -92,18 +94,18 @@ public class KeyValuePartition {
         return totalKeys.get();
     }
 
-    private OperationType operationType(DataKey key, Long expectedOldVersion) {
+    private OperationType operationType(DataKey key, Long expectedOldVersion, DataValue newValue) {
 
-        if (!keyValueStore.containsKey(key)) return OperationType.INSERT; // insert
+        if (!keyValueStore.containsKey(key)) return OperationType.INSERT;
 
-        if (expectedOldVersion == null) return OperationType.UPDATE; // update the existing version
-
-        // update
         DataValue existingEntry = keyValueStore.get(key);
-        long actualOldVersion = existingEntry.version();
+        if (Arrays.equals(newValue.data(), existingEntry.data())) return OperationType.SKIP;
 
+        if (expectedOldVersion == null) return OperationType.UPDATE;
+
+        long actualOldVersion = existingEntry.version();
         return actualOldVersion == expectedOldVersion ?
-                OperationType.UPDATE : OperationType.VERSION_MISMATCH; // update using new version or fail
+                OperationType.UPDATE : OperationType.VERSION_MISMATCH;
     }
 
     public CompletableFuture<Boolean> containsKey(DataKey key) {
@@ -117,7 +119,7 @@ public class KeyValuePartition {
     enum OperationType {
         INSERT,
         UPDATE,
-        VERSION_MISMATCH
+        SKIP, VERSION_MISMATCH
     }
 }
 

@@ -1,6 +1,9 @@
 package com.bcorp;
 
 import com.bcorp.api.*;
+import com.bcorp.apiimpl.StringGetRequestHandlerHandler;
+import com.bcorp.apiimpl.StringKeyJsonValueSetHandlerHandler;
+import com.bcorp.apiimpl.StringKeyStringValueSetHandlerHandler;
 import com.bcorp.codec.CodecProvider;
 import com.bcorp.codec.JsonCodec;
 import com.bcorp.codec.StringCodec;
@@ -31,11 +34,11 @@ public class JsonStoreOperations {
                 String.class, new StringCodec()
         ));
 
-        Resolver resolver = new Resolver();
-        resolver.registerKeyOnlyHandler(CacheRequestMethod.GET, String.class, new StringGetRequestHandlerHandler(codecProvider));
-        resolver.registerKeyValueHandler(CacheRequestMethod.SET, String.class, String.class, new StringKeyStringValueSetHandlerHandler(codecProvider.getCodec(String.class)));
+        HandlerResolver handlerResolver = new HandlerResolver();
+        handlerResolver.registerKeyOnlyHandler(CacheRequestMethod.GET, String.class, new StringGetRequestHandlerHandler(codecProvider));
+        handlerResolver.registerKeyValueHandler(CacheRequestMethod.SET, String.class, String.class, new StringKeyStringValueSetHandlerHandler(codecProvider.getCodec(String.class)));
 
-        KeyValueStoreEngine kvApi = new KeyValueStoreEngine(keyValueStore, resolver);
+        KeyValueStoreEngine kvApi = new KeyValueStoreEngine(keyValueStore, handlerResolver);
         CacheResponse<String> setResponse = kvApi.setCache(key, value);
 
         CacheResponse<String> getResponse = (CacheResponse<String>) kvApi.getCache(key);
@@ -59,10 +62,10 @@ public class JsonStoreOperations {
                 ObjectNode.class, new JsonCodec()
         ));
 
-        Resolver resolver = new Resolver();
-        resolver.registerKeyOnlyHandler(CacheRequestMethod.GET, String.class, new StringGetRequestHandlerHandler(codecProvider));
-        resolver.registerKeyValueHandler(CacheRequestMethod.SET, String.class, ObjectNode.class, new StringKeyJsonValueSetHandlerHandler(codecProvider.getCodec(ObjectNode.class)));
-        KeyValueStoreEngine kvApi = new KeyValueStoreEngine(keyValueStore, resolver);
+        HandlerResolver handlerResolver = new HandlerResolver();
+        handlerResolver.registerKeyOnlyHandler(CacheRequestMethod.GET, String.class, new StringGetRequestHandlerHandler(codecProvider));
+        handlerResolver.registerKeyValueHandler(CacheRequestMethod.SET, String.class, ObjectNode.class, new StringKeyJsonValueSetHandlerHandler(codecProvider.getCodec(ObjectNode.class)));
+        KeyValueStoreEngine kvApi = new KeyValueStoreEngine(keyValueStore, handlerResolver);
 
 
         JsonNode node = mapper.readTree(valueAsJsonStr);

@@ -1,6 +1,8 @@
-package com.bcorp.api;
+package com.bcorp.apiimpl;
 
 import com.bcorp.CacheResponse;
+import com.bcorp.api.Filter;
+import com.bcorp.api.KeyOnlyRequestHandler;
 import com.bcorp.codec.Codec;
 import com.bcorp.codec.CodecProvider;
 import com.bcorp.kvstore.KeyValueStore;
@@ -9,11 +11,11 @@ import com.bcorp.pojos.DataKey;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-public class StringGetRequestHandlerHandler implements KeyOnlyRequestHandler<String> {
+public class StringRemoveRequestHandlerHandler implements KeyOnlyRequestHandler<String, CacheResponse<?>> {
 
     private final CodecProvider codecProvider;
 
-    public StringGetRequestHandlerHandler(CodecProvider _codecProvider) {
+    public StringRemoveRequestHandlerHandler(CodecProvider _codecProvider) {
         this.codecProvider = _codecProvider;
     }
 
@@ -22,9 +24,9 @@ public class StringGetRequestHandlerHandler implements KeyOnlyRequestHandler<Str
 
         DataKey dataKey = new DataKey(key);
 
-        return keyValueStore.get(dataKey).thenApply(v -> {
+        return keyValueStore.remove(dataKey).thenApply(v -> {
             Codec<?> codec = codecProvider.getCodec(v.dataType());
-            return new CacheResponse<>(codec.decode(v), v.version());
+            return CacheResponse.success(codec.decode(v), v.version());
         });
     }
 }
