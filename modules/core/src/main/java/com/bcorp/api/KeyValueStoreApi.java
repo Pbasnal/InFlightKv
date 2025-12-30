@@ -1,10 +1,9 @@
 package com.bcorp.api;
 
+import com.bcorp.CacheResponse;
 import com.bcorp.kvstore.KeyValueStore;
-import com.bcorp.codec.CodecProvider;
 
 import java.util.Collections;
-import java.util.concurrent.CompletableFuture;
 
 public class KeyValueStoreApi {
     private final KeyValueStore keyValueStore;
@@ -16,12 +15,16 @@ public class KeyValueStoreApi {
         this.router = _router;
     }
 
-//    public CompletableFuture<?> get(String key) {
-//        CacheRequest request = new CacheRequest(key,
-//                CacheRequestMethod.GET,
-//                Collections.emptyList());
-//        IHandleRequests<?> handler = router.getHandler(request, null);
-//
-//        return handler.handle(request, keyValueStore);
-//    }
+    public <K, V> CacheResponse<V> setCache(K key,
+                                            V value) {
+        KeyValueRequestHandler<K, V> setHandler = router.resolveHandler(key, value);
+        return setHandler.handle(key, value, Collections.emptyList(), keyValueStore).join();
+    }
+
+    public <K> CacheResponse<?> getCache(K key) {
+
+        KeyOnlyRequestHandler<K> getHandler = router.resolveHandler(key);
+        return getHandler.handle(key, Collections.emptyList(), keyValueStore).join();
+    }
+
 }

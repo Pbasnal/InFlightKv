@@ -1,4 +1,5 @@
 package com.bcorp.api;
 
-public record CacheRoute(CacheRequestMethod method, Class<?> clazz) {
+public record CacheRoute<T>(CacheRequestMethod method, Class<T> clazz) {
 }
+

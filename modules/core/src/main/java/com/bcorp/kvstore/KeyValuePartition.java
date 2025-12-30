@@ -1,6 +1,7 @@
 package com.bcorp.kvstore;
 
 import com.bcorp.exceptions.ConcurrentUpdateException;
+import com.bcorp.exceptions.KeyNotFoundException;
 import com.bcorp.pojos.DataValue;
 import com.bcorp.pojos.DataKey;
 
@@ -27,11 +28,17 @@ public class KeyValuePartition {
         CompletableFuture<DataValue> resultFuture = new CompletableFuture<>();
         eventLoop.execute(() -> {
             DataValue value = keyValueStore.get(key);
-            keyValueStore.put(key, new DataValue(value.data(),
-                    value.dataType(),
-                    System.currentTimeMillis(),
-                    value.version()));
-            resultFuture.complete(value);
+
+            if (value == null) {
+                resultFuture.complete(null);
+            } else {
+                // to update the last access time
+                keyValueStore.put(key, new DataValue(value.data(),
+                        value.dataType(),
+                        System.currentTimeMillis(),
+                        value.version()));
+                resultFuture.complete(value);
+            }
         });
         return resultFuture;
     }

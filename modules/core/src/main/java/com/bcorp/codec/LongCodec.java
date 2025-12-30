@@ -20,13 +20,12 @@ public class LongCodec implements Codec<Long> {
     }
 
     @Override
-    public CacheResponse<Long> decode(DataValue dataValue) {
+    public Long decode(DataValue dataValue) {
 
-        return new CacheResponse<>(ByteBuffer
+        return ByteBuffer
                 .wrap(dataValue.data())
                 .order(ByteOrder.LITTLE_ENDIAN)
-                .getLong(),
-                dataValue.version());
+                .getLong();
 
     }
 }

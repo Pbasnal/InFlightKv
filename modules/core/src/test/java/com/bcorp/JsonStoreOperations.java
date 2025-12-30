@@ -1,12 +1,18 @@
 package com.bcorp;
 
 import com.bcorp.api.*;
+import com.bcorp.codec.CodecProvider;
+import com.bcorp.codec.JsonCodec;
 import com.bcorp.codec.StringCodec;
 import com.bcorp.kvstore.KeyValueStore;
 import com.bcorp.pojos.DataKey;
 import com.bcorp.pojos.DataValue;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JacksonException;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
@@ -17,31 +23,112 @@ public class JsonStoreOperations {
 
     @Test
     public void testRandom() {
-        Router router = new Router();
-        router.addRoute(new CacheRoute(CacheRequestMethod.GET, String.class),
-                new StringGetRequestHandler());
-        router.addRoute(new CacheRoute(CacheRequestMethod.SET, String.class),
-                new StringSetRequestHandler(new StringCodec()));
 
-        KeyValueStore kvStore = new KeyValueStore();
+//        CodecProvider codecProvider = new CodecProvider(Map.of(
+//           String.class, new StringCodec()
+//        ));
+//
+//        Router router = new Router();
+//        router.addRequestHandler(new CacheRoute<>(CacheRequestMethod.GET, String.class),
+//                new StringKeyGetRequestHandler(codecProvider));
+//
+//        router.addRequestHandler(new CacheRoute<>(CacheRequestMethod.SET, String.class),
+//                new StringSetRequestHandler(new StringCodec()));
+//
+//        KeyValueStore kvStore = new KeyValueStore();
+//
+//        String key = "a";
+//        String value = "value";
+//
+//        CacheRequest<String> req = new CacheRequest<>(key,
+//                CacheRequestMethod.SET,
+//                Optional.of(value),
+//                Collections.emptyList());
+//
+//        IHandleRequests<?> stringSetHandler = router.getHandler(req);
+//        CacheResponse cacheResponse = stringSetHandler
+//                .handle(req, kvStore)
+//                .join();
+//
+//        assert "value".equals(cacheResponse.data());
+//
+//        CacheRequest<String> getReq = new CacheRequest<>(key,
+//                CacheRequestMethod.GET,
+//                Optional.empty(),
+//                Collections.emptyList());
+//
+//        IHandleRequests<String> stringGetHandler = router.getHandler(getReq);
+//        cacheResponse = stringGetHandler
+//                .handle(req, kvStore)
+//                .join();
+//
+//        assert "value".equals(cacheResponse.data());
+    }
 
-        String key = "a";
+
+    @Test
+    public void testStagedProcessing() {
+        String key = "key";
         String value = "value";
+        KeyValueStore keyValueStore = new KeyValueStore();
 
-        CacheRequest req = new CacheRequest(key,
-                CacheRequestMethod.SET,
-                Optional.of(value),
-                Collections.emptyList());
+        CodecProvider codecProvider = new CodecProvider(Map.of(
+                String.class, new StringCodec()
+        ));
 
-        IHandleRequests<String> stringSetHandler = router.getHandler(new CacheRequest(key,
-                        CacheRequestMethod.SET,
-                        Optional.of(value),
-                        Collections.emptyList()));
+        Router router = new Router();
+        router.registerKeyOnlyHandler(String.class, new StringGetRequestHandlerHandler(codecProvider));
+        router.registerKeyValueHandler(String.class, String.class, new StringKeyStringValueSetHandlerHandler(codecProvider.getCodec(String.class)));
 
-        CacheResponse<String> cacheResponse = stringSetHandler.handle(req, kvStore).join();
+        KeyValueStoreApi kvApi = new KeyValueStoreApi(keyValueStore, router);
+        CacheResponse<String> setResponse = kvApi.setCache(key, value);
 
-        assert "value".equals(cacheResponse.data());
+        CacheResponse<String> getResponse = (CacheResponse<String>) kvApi.getCache(key);
 
+        assert setResponse.data().equals(getResponse.data());
+    }
+
+    @Test
+    public void testJsonProcessing() throws JsonProcessingException {
+
+        String key = "key";
+
+        WrapperA wrappedData = new WrapperA(1, List.of(12, 13, 14, 15));
+        String valueAsJsonStr = mapper.writeValueAsString(wrappedData);
+
+        System.out.println(valueAsJsonStr);
+
+        KeyValueStore keyValueStore = new KeyValueStore();
+        CodecProvider codecProvider = new CodecProvider(Map.of(
+                String.class, new StringCodec(),
+                ObjectNode.class, new JsonCodec()
+        ));
+
+        Router router = new Router();
+        router.registerKeyOnlyHandler(String.class, new StringGetRequestHandlerHandler(codecProvider));
+        router.registerKeyValueHandler(String.class, ObjectNode.class, new StringKeyJsonValueSetHandlerHandler(codecProvider.getCodec(ObjectNode.class)));
+        KeyValueStoreApi kvApi = new KeyValueStoreApi(keyValueStore, router);
+
+
+        JsonNode node = mapper.readTree(valueAsJsonStr);
+        CacheResponse<JsonNode> setResponse = kvApi.setCache(key, node);
+        CacheResponse<JsonNode> getResponse = (CacheResponse<JsonNode>) kvApi.getCache(key);
+
+        assert setResponse.data().equals(getResponse.data());
+
+        mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
+        WrapperA wrappedData2 = new WrapperA(2, null);
+        valueAsJsonStr = mapper.writeValueAsString(wrappedData2);
+
+        node = mapper.readTree(valueAsJsonStr);
+        setResponse = kvApi.setCache(key, node);
+        getResponse = (CacheResponse<JsonNode>) kvApi.getCache(key);
+
+        WrapperA expectedObject = new WrapperA(2, List.of(12, 13, 14, 15));
+        valueAsJsonStr = mapper.writeValueAsString(expectedObject);
+
+
+        assert valueAsJsonStr.equals(mapper.writeValueAsString(getResponse.data()));
     }
 
 
@@ -68,31 +155,9 @@ public class JsonStoreOperations {
         assert storedWrappedA.equals(wrappedData);
     }
 
-
-    private record TypedKey<T>(String key) {
-    }
-
-    private interface Gen<T> {
-        T rev(String val);
-
-        String unrev(T data);
-    }
-
-    private static class StringGen implements Gen<String> {
-
-        @Override
-        public String rev(String val) {
-            return "asdf" + val;
-        }
-
-        @Override
-        public String unrev(String data) {
-            return data + "asdf";
-        }
-    }
-
     private static class WrapperA {
         public int data1;
+        @JsonInclude(JsonInclude.Include.NON_NULL)
         public List<WrapperB> data2s;
 
         public WrapperA() {
@@ -100,6 +165,9 @@ public class JsonStoreOperations {
 
         public WrapperA(int _data1, List<Integer> _data2s) {
             this.data1 = _data1;
+
+            if (_data2s == null) return;
+
             data2s = new ArrayList<>();
             for (int i = 0; i < _data2s.size(); i++) {
                 data2s.add(new WrapperB(_data2s.get(i)));

@@ -12,10 +12,8 @@ public class StringCodec implements Codec<String> {
     }
 
     @Override
-    public CacheResponse<String> decode(DataValue value) {
-        return new CacheResponse<>(new String(value.data(), StandardCharsets.UTF_8),
-                value.version()
-        );
+    public String decode(DataValue value) {
+        return new String(value.data(), StandardCharsets.UTF_8);
     }
 }
 
