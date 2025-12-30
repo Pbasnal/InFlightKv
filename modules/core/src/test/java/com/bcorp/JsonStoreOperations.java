@@ -1,6 +1,7 @@
 package com.bcorp;
 
 import com.bcorp.api.*;
+import com.bcorp.apiimpl.ResponseHolder;
 import com.bcorp.apiimpl.StringGetRequestHandlerHandler;
 import com.bcorp.apiimpl.StringKeyJsonValueSetHandlerHandler;
 import com.bcorp.apiimpl.StringKeyStringValueSetHandlerHandler;
@@ -39,9 +40,9 @@ public class JsonStoreOperations {
         handlerResolver.registerKeyValueHandler(CacheRequestMethod.set(), String.class, String.class, new StringKeyStringValueSetHandlerHandler(codecProvider.getCodec(String.class)));
 
         KeyValueStoreEngine kvApi = new KeyValueStoreEngine(keyValueStore, handlerResolver);
-        CacheResponse<String> setResponse = kvApi.setCache(key, value, null, CacheRequestMethod.set());
+        ResponseHolder<String> setResponse = kvApi.setCache(key, value, null, CacheRequestMethod.set());
 
-        CacheResponse<String> getResponse = (CacheResponse<String>) kvApi.getCache(key, CacheRequestMethod.get());
+        ResponseHolder<String> getResponse = (ResponseHolder<String>) kvApi.getCache(key, CacheRequestMethod.get());
 
         assert setResponse.data().equals(getResponse.data());
     }
@@ -69,8 +70,8 @@ public class JsonStoreOperations {
 
 
         JsonNode node = mapper.readTree(valueAsJsonStr);
-        CacheResponse<JsonNode> setResponse = kvApi.setCache(key, node, null, CacheRequestMethod.set());
-        CacheResponse<JsonNode> getResponse = (CacheResponse<JsonNode>) kvApi.getCache(key, CacheRequestMethod.get());
+        ResponseHolder<JsonNode> setResponse = kvApi.setCache(key, node, null, CacheRequestMethod.set());
+        ResponseHolder<JsonNode> getResponse = (ResponseHolder<JsonNode>) kvApi.getCache(key, CacheRequestMethod.get());
 
         assert setResponse.data().equals(getResponse.data());
 
@@ -80,7 +81,7 @@ public class JsonStoreOperations {
 
         node = mapper.readTree(valueAsJsonStr);
         setResponse = kvApi.setCache(key, node, null, CacheRequestMethod.set());
-        getResponse = (CacheResponse<JsonNode>) kvApi.getCache(key, CacheRequestMethod.get());
+        getResponse = (ResponseHolder<JsonNode>) kvApi.getCache(key, CacheRequestMethod.get());
 
         WrapperA expectedObject = new WrapperA(2, List.of(12, 13, 14, 15));
         valueAsJsonStr = mapper.writeValueAsString(expectedObject);

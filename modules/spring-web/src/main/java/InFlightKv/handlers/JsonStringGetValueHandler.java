@@ -2,7 +2,7 @@ package InFlightKv.handlers;
 
 import InFlightKv.utils.CacheExceptionUtils;
 import InFlightKv.utils.CacheHandlerUtils;
-import com.bcorp.CacheResponse;
+import InFlightKv.pojos.CacheResponse;
 import com.bcorp.api.Filter;
 import com.bcorp.api.KeyOnlyRequestHandler;
 import com.bcorp.codec.JsonCodec;

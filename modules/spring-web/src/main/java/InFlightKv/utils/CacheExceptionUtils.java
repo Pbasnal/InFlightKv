@@ -1,7 +1,7 @@
 package InFlightKv.utils;
 
-import com.bcorp.CacheErrorCode;
-import com.bcorp.CacheResponse;
+import InFlightKv.pojos.CacheErrorCode;
+import InFlightKv.pojos.CacheResponse;
 import com.bcorp.exceptions.ConcurrentUpdateException;
 
 import java.util.concurrent.CompletionException;

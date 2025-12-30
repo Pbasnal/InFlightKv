@@ -1,6 +1,5 @@
 package com.bcorp.codec;
 
-import com.bcorp.CacheResponse;
 import com.bcorp.pojos.DataValue;
 
 import java.nio.charset.StandardCharsets;

@@ -1,6 +1,5 @@
 package com.bcorp.apiimpl;
 
-import com.bcorp.CacheResponse;
 import com.bcorp.api.Filter;
 import com.bcorp.api.KeyValueRequestHandler;
 import com.bcorp.api.VersionFilter;
@@ -13,7 +12,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-public class StringKeyJsonValueSetHandlerHandler implements KeyValueRequestHandler<String, ObjectNode, CacheResponse<ObjectNode>> {
+public class StringKeyJsonValueSetHandlerHandler implements KeyValueRequestHandler<String, ObjectNode, ResponseHolder<ObjectNode>> {
 
     private final Codec<ObjectNode> jsonCodec;
 
@@ -22,7 +21,7 @@ public class StringKeyJsonValueSetHandlerHandler implements KeyValueRequestHandl
     }
 
     @Override
-    public CompletableFuture<CacheResponse<ObjectNode>> handle(String key, ObjectNode value, List<Filter> filters, KeyValueStore keyValueStore) {
+    public CompletableFuture<ResponseHolder<ObjectNode>> handle(String key, ObjectNode value, List<Filter> filters, KeyValueStore keyValueStore) {
 
         DataKey dataKey = new DataKey(key);
 
@@ -54,10 +53,10 @@ public class StringKeyJsonValueSetHandlerHandler implements KeyValueRequestHandl
             return keyValueStore.set(dataKey, mergedDataValue, existingData.version());
         }).thenApply(v -> {
             if (v == null) {
-                return CacheResponse.notFound();
+                return ResponseHolder.failure(404);
             }
             ObjectNode node = jsonCodec.decode(v);
-            return CacheResponse.success(node, v.version());
+            return ResponseHolder.success(node, v.version());
         });
     }
 
