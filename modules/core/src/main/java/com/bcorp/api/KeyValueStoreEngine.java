@@ -1,29 +1,41 @@
 package com.bcorp.api;
 
-import com.bcorp.CacheResponse;
 import com.bcorp.kvstore.KeyValueStore;
 
 import java.util.Collections;
+import java.util.List;
 
 public class KeyValueStoreEngine {
     private final KeyValueStore keyValueStore;
-    private final Resolver resolver;
+    private final HandlerResolver handlerResolver;
 
     public KeyValueStoreEngine(KeyValueStore _keyValueStore,
-                               Resolver _resolver) {
+                               HandlerResolver _Handler_resolver) {
         this.keyValueStore = _keyValueStore;
-        this.resolver = _resolver;
+        this.handlerResolver = _Handler_resolver;
     }
 
-    public <K, V> CacheResponse<V> setCache(K key,
-                                            V value) {
-        KeyValueRequestHandler<K, V> setHandler = resolver.resolveHandler(CacheRequestMethod.SET, key, value);
+    public <K, V, R> R setCache(K key,
+                                V value) {
+        KeyValueRequestHandler<K, V, R> setHandler = handlerResolver.resolveHandler(CacheRequestMethod.SET, key, value);
         return setHandler.handle(key, value, Collections.emptyList(), keyValueStore).join();
     }
 
-    public <K> CacheResponse<?> getCache(K key) {
+    public <K, V, R> R setCache(K key,
+                                V value,
+                                Long ifVersion) {
+        KeyValueRequestHandler<K, V, R> setHandler = handlerResolver.resolveHandler(CacheRequestMethod.SET, key, value);
 
-        KeyOnlyRequestHandler<K> getHandler = resolver.resolveHandler(CacheRequestMethod.GET, key);
+        List<Filter> filters = ifVersion != null ?
+                List.of(new VersionFilter(ifVersion)) :
+                Collections.emptyList();
+
+        return setHandler.handle(key, value, filters, keyValueStore).join();
+    }
+
+    public <K, R> R getCache(K key) {
+
+        KeyOnlyRequestHandler<K, R> getHandler = handlerResolver.resolveHandler(CacheRequestMethod.GET, key);
         return getHandler.handle(key, Collections.emptyList(), keyValueStore).join();
     }
 
