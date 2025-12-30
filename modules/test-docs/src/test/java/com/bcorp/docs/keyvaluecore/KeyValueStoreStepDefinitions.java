@@ -21,11 +21,7 @@ public class KeyValueStoreStepDefinitions {
     private KeyValueStore newKeyValueStore;
     private DataValue retrievedValue;
     private Exception caughtException;
-    private Map<String, DataValue> storedValues;
-    private long initialAccessTime;
-    private long lastAccessTime;
     private long initialKeyCount;
-    private String lastSetKey; // Track the last key that was set
 
     @Before
     public void setUp() {
@@ -33,8 +29,6 @@ public class KeyValueStoreStepDefinitions {
         newKeyValueStore = null;
         retrievedValue = null;
         caughtException = null;
-        storedValues = new HashMap<>();
-        lastSetKey = null;
     }
 
     @Given("a new KeyValueStore instance")
@@ -42,31 +36,18 @@ public class KeyValueStoreStepDefinitions {
         keyValueStore = new KeyValueStore();
     }
 
-    @Given("I set a value {string} for key {string} with `keyValueStore.set\\(dataKey, dataValue, null)`")
+    @Given("I set a value {string} for key {string}")
     public void iSetAValueForKey(String value, String key) {
         DataKey dataKey = DataKey.from(key);
         DataValue dataValue = DataValue.fromString(value);
         keyValueStore.set(dataKey, dataValue, null).join();
-        storedValues.put(key, dataValue);
-        lastSetKey = key; // Track the last key set
-    }
-
-    @Given("I retrieve the value for key {string}")
-    public void iRetrieveTheValueForKey(String key) {
-        DataKey dataKey = DataKey.from(key);
-        retrievedValue = keyValueStore.get(dataKey).join();
-        if (retrievedValue != null) {
-            initialAccessTime = retrievedValue.lastAccessTimeMs();
-        }
     }
 
     @Given("I set values for multiple keys:")
     public void iSetValuesForMultipleKeys(io.cucumber.datatable.DataTable dataTable) {
-        for (Map<String, String> row : dataTable.asMaps()) {
-            String key = row.get("key");
-            String value = row.get("value");
-            iSetAValueForKey(value, key);
-        }
+        dataTable.asMaps().forEach(row ->
+                iSetAValueForKey(row.get("value"), row.get("key"))
+        );
     }
 
     @Given("the KeyValueStore is initialized")
@@ -84,12 +65,23 @@ public class KeyValueStoreStepDefinitions {
         Thread.sleep(50);
     }
 
+//    @Given("I have {int} keys with values")
+//    public void iHaveKeysWithValues(int keyCount) {
+//        if (keyCount == 0) return; // No keys to set up
+//
+//        // Set up test keys for partitioning scenarios
+//        String[] testKeys = {"key-1", "key-2", "key-3", "key-100"};
+//        for (int i = 0; i < Math.min(keyCount, testKeys.length); i++) {
+//            iSetAValueForKey("value-" + (i + 1), testKeys[i]);
+//        }
+//    }
+
     @Given("I set multiple values for keys from {string} to {string}")
     public void iSetMultipleValuesForKeysFromTo(String startKey, String endKey) {
         // Extract number from keys like "mem-key-1" to "mem-key-1000"
         int start = Integer.parseInt(startKey.substring(startKey.lastIndexOf('-') + 1));
         int end = Integer.parseInt(endKey.substring(endKey.lastIndexOf('-') + 1));
-        
+
         for (int i = start; i <= end; i++) {
             String key = "mem-key-" + i;
             String value = "value-" + i;
@@ -103,23 +95,12 @@ public class KeyValueStoreStepDefinitions {
         retrievedValue = keyValueStore.get(dataKey).join();
     }
 
-    @When("I set a value {string} for key {string} with no previous version")
-    public void iSetAValueForKeyWithNoPreviousVersionWhen(String value, String key) {
+    @When("I update the value to {string} for key {string}")
+    public void iUpdateTheValueToForKey(String value, String key) {
         DataKey dataKey = DataKey.from(key);
         DataValue dataValue = DataValue.fromString(value);
         keyValueStore.set(dataKey, dataValue, null).join();
-        lastSetKey = key; // Track the last key set
-    }
-
-    @When("I set a value {string} for key {string} with previous version matching the current version")
-    public void iSetAValueForKeyWithPreviousVersionMatchingWhen(String value, String key) {
-        DataKey dataKey = DataKey.from(key);
-        DataValue currentValue = keyValueStore.get(dataKey).join();
-        if (currentValue != null) {
-            DataValue newValue = DataValue.fromString(value);
-            keyValueStore.set(dataKey, newValue, currentValue.version()).join();
-            lastSetKey = key; // Track the last key set
-        }
+        retrievedValue = keyValueStore.get(dataKey).join();
     }
 
     @When("I set a value {string} for key {string} with previous version {int}")
@@ -127,17 +108,9 @@ public class KeyValueStoreStepDefinitions {
         DataKey dataKey = DataKey.from(key);
         DataValue dataValue = DataValue.fromString(value);
         try {
-            CompletableFuture<DataValue> future = keyValueStore.set(dataKey, dataValue, (long) prevVersion);
-            future.join();
-            lastSetKey = key; // Track the last key set if successful
+            keyValueStore.set(dataKey, dataValue, (long) prevVersion).join();
         } catch (Exception e) {
-            // CompletableFuture.join() throws CompletionException with the actual exception as cause
-            Throwable cause = e.getCause();
-            if (cause != null && cause instanceof Exception) {
-                caughtException = (Exception) cause;
-            } else {
-                caughtException = e;
-            }
+            caughtException = e.getCause() instanceof Exception ? (Exception) e.getCause() : e;
         }
     }
 
@@ -148,10 +121,6 @@ public class KeyValueStoreStepDefinitions {
         keyValueStore.remove(dataKey).join();
     }
 
-    @When("I check the total key count")
-    public void iCheckTheTotalKeyCount() {
-        // This is just a trigger step, actual check is in Then
-    }
 
     @When("I create a new KeyValueStore instance")
     public void iCreateANewKeyValueStoreInstance() {
@@ -174,16 +143,25 @@ public class KeyValueStoreStepDefinitions {
         // This step documents that operations are async
     }
 
-    @When("I remove key {string}")
-    public void iRemoveKey(String key) {
+    @Then("the value at key {string} should be {string} with version {int}")
+    public void theRetrievedValueShouldBe(String key, String expectedValue, int expectedVersion) {
         DataKey dataKey = DataKey.from(key);
-        keyValueStore.remove(dataKey).join();
+        DataValue value = keyValueStore.get(dataKey).join();
+
+        if (keyValueStore.containsKey(dataKey).join()) {
+            assertNotNull(value, "Retrieved value should not be null");
+            String actualValue = new String(value.data(), StandardCharsets.UTF_8);
+            assertEquals(expectedValue, actualValue, "Retrieved value should match expected value");
+            assertEquals(expectedVersion, value.version(), "Retrieved value should match expected version");
+        } else {
+            assertNull(value, "Retrieved value should be null");
+        }
     }
 
     @Then("the retrieved value should be {string}")
     public void theRetrievedValueShouldBe(String expectedValue) {
         if (expectedValue == null || expectedValue.isEmpty()) {
-            assertNull(retrievedValue, "Retrieved value should be null");
+            assertEquals(0, retrievedValue.data().length, "Retrieved value should be null");
         } else {
             assertNotNull(retrievedValue, "Retrieved value should not be null");
             String actualValue = new String(retrievedValue.data(), StandardCharsets.UTF_8);
@@ -193,12 +171,7 @@ public class KeyValueStoreStepDefinitions {
 
     @Then("the value should have version {int}")
     public void theValueShouldHaveVersion(int expectedVersion) {
-        // If retrievedValue is null, retrieve the last set key's value
-        if (retrievedValue == null && lastSetKey != null) {
-            DataKey dataKey = DataKey.from(lastSetKey);
-            retrievedValue = keyValueStore.get(dataKey).join();
-        }
-        assertNotNull(retrievedValue, "Retrieved value should not be null");
+        assertNotNull(retrievedValue, "Value must be retrieved first");
         assertEquals(expectedVersion, retrievedValue.version(), "Version should match");
     }
 
@@ -206,17 +179,19 @@ public class KeyValueStoreStepDefinitions {
     public void theValueForKeyShouldBe(String key, String expectedValue) {
         DataKey dataKey = DataKey.from(key);
         DataValue value = keyValueStore.get(dataKey).join();
+
         assertNotNull(value, "Value should not be null");
         String actualValue = new String(value.data(), StandardCharsets.UTF_8);
         assertEquals(expectedValue, actualValue, "Value should match expected");
+        retrievedValue = value;
     }
 
     @Then("the operation should fail with ConcurrentUpdateException")
     public void theOperationShouldFailWithConcurrentUpdateException() {
         assertNotNull(caughtException, "Exception should have been caught");
-        assertTrue(caughtException instanceof ConcurrentUpdateException || 
-                   caughtException.getCause() instanceof ConcurrentUpdateException,
-                   "Exception should be ConcurrentUpdateException");
+        assertTrue(caughtException instanceof ConcurrentUpdateException ||
+                        caughtException.getCause() instanceof ConcurrentUpdateException,
+                "Exception should be ConcurrentUpdateException");
     }
 
     @Then("getting the value for key {string} should return null")
@@ -226,10 +201,10 @@ public class KeyValueStoreStepDefinitions {
         assertNull(value, "Value should be null after removal");
     }
 
-    @Then("the total key count should decrease")
-    public void theTotalKeyCountShouldDecrease() {
+    @Then("the total key count should decrease by {int}")
+    public void theTotalKeyCountShouldDecrease(int decreaseInKeyCount) {
         long currentKeyCount = keyValueStore.totalKeys();
-        assertTrue(currentKeyCount < initialKeyCount, "Key count should have decreased");
+        assertTrue(initialKeyCount - currentKeyCount == decreaseInKeyCount, "Key count should have decreased by " + decreaseInKeyCount);
     }
 
     @Then("the total key count should be {int}")
@@ -262,10 +237,10 @@ public class KeyValueStoreStepDefinitions {
         assertNotNull(valueAfterAccess, "Value should exist");
         // The access time should be recent (within last second)
         long currentTime = System.currentTimeMillis();
-        assertTrue(valueAfterAccess.lastAccessTimeMs() <= currentTime, 
-                   "Last access time should be set");
-        assertTrue(valueAfterAccess.lastAccessTimeMs() > currentTime - 1000, 
-                   "Last access time should be recent");
+        assertTrue(valueAfterAccess.lastAccessTimeMs() <= currentTime,
+                "Last access time should be set");
+        assertTrue(valueAfterAccess.lastAccessTimeMs() > currentTime - 1000,
+                "Last access time should be recent");
     }
 
     @Then("key {string} should not exist")
