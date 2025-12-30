@@ -1,7 +1,6 @@
 package com.bcorp.kvstore;
 
 import com.bcorp.exceptions.ConcurrentUpdateException;
-import com.bcorp.exceptions.KeyNotFoundException;
 import com.bcorp.pojos.DataValue;
 import com.bcorp.pojos.DataKey;
 

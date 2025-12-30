@@ -1,8 +1,8 @@
 package InFlightKv.controller;
 
 import InFlightKv.kvengine.CustomCacheRequestMethod;
-import com.bcorp.CacheError;
-import com.bcorp.CacheResponse;
+import InFlightKv.pojos.CacheError;
+import InFlightKv.pojos.CacheResponse;
 import com.bcorp.api.CacheRequestMethod;
 import com.bcorp.api.KeyValueStoreEngine;
 import org.springframework.http.HttpStatus;

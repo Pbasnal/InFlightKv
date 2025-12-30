@@ -1,5 +1,6 @@
 package com.bcorp.api;
 
+import com.bcorp.exceptions.DuplicateHandlerRegistration;
 import com.bcorp.exceptions.HandlerNotFoundException;
 
 import java.util.HashMap;
@@ -49,6 +50,12 @@ public class HandlerResolver {
             Class<K> keyClass,
             Class<V> valueClass,
             KeyValueRequestHandler<K, V, R> handler) {
+
+        KeyValueHandlerKey key = new KeyValueHandlerKey(method, keyClass, valueClass);
+        if (keyValueHandlers.containsKey(key)) {
+            throw new DuplicateHandlerRegistration("Handler for " + key + " already registered");
+        }
+
         keyValueHandlers.put(new KeyValueHandlerKey(method, keyClass, valueClass), handler);
     }
 
