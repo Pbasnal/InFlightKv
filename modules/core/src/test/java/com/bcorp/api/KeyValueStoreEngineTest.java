@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 
+import static com.bcorp.testutils.TestUtils.waitFuture;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -50,7 +51,7 @@ class KeyValueStoreEngineTest {
                 .thenReturn(CompletableFuture.completedFuture("result"));
 
         // When
-        String result = engine.setCache("key", 42, null, CacheRequestMethod.set());
+        String result = waitFuture(engine.setCache("key", 42, null, CacheRequestMethod.set()));
 
         // Then
         assertEquals("result", result);
@@ -67,7 +68,7 @@ class KeyValueStoreEngineTest {
                 .thenReturn(CompletableFuture.completedFuture("result"));
 
         // When
-        String result = engine.setCache("key", 42, 1L, CacheRequestMethod.set());
+        String result = waitFuture(engine.setCache("key", 42, 1L, CacheRequestMethod.set()));
 
         // Then
         assertEquals("result", result);
@@ -92,7 +93,7 @@ class KeyValueStoreEngineTest {
                 .thenReturn(CompletableFuture.completedFuture("cached-value"));
 
         // When
-        String result = engine.getCache("key", CacheRequestMethod.get());
+        String result = waitFuture(engine.getCache("key", CacheRequestMethod.get()));
 
         // Then
         assertEquals("cached-value", result);
@@ -109,7 +110,7 @@ class KeyValueStoreEngineTest {
                 .thenReturn(CompletableFuture.completedFuture("removed"));
 
         // When
-        String result = engine.removeCache("key", CacheRequestMethod.get());
+        String result = waitFuture(engine.removeCache("key", CacheRequestMethod.get()));
 
         // Then
         assertEquals("removed", result);
@@ -129,7 +130,7 @@ class KeyValueStoreEngineTest {
                 .thenReturn(CompletableFuture.completedFuture(999));
 
         // When
-        Integer result = engine.setCache(123, 45.67, null, CacheRequestMethod.set());
+        Integer result = waitFuture(engine.setCache(123, 45.67, null, CacheRequestMethod.set()));
 
         // Then
         assertEquals(999, result);
@@ -145,7 +146,7 @@ class KeyValueStoreEngineTest {
                 .thenReturn(CompletableFuture.completedFuture("method-result"));
 
         // When - testing with different method
-        String result = engine.getCache("test-key", CacheRequestMethod.get());
+        String result = waitFuture(engine.getCache("test-key", CacheRequestMethod.get()));
 
         // Then
         assertEquals("method-result", result);
@@ -164,8 +165,8 @@ class KeyValueStoreEngineTest {
         // When & Then
 
         Throwable thrown = assertThrows(Exception.class, () ->
-                engine.getCache("key", CacheRequestMethod.get())
-        );
+                waitFuture(engine.getCache("key", CacheRequestMethod.get())
+        ));
         if (thrown instanceof CompletionException) {
             thrown = thrown.getCause();
         }
@@ -182,7 +183,7 @@ class KeyValueStoreEngineTest {
                 .thenReturn(CompletableFuture.completedFuture("null-version-result"));
 
         // When - explicitly pass null version
-        String result = engine.setCache("key", 1, null, CacheRequestMethod.set());
+        String result = waitFuture(engine.setCache("key", 1, null, CacheRequestMethod.set()));
 
         // Then
         assertEquals("null-version-result", result);
@@ -198,7 +199,7 @@ class KeyValueStoreEngineTest {
                 .thenReturn(CompletableFuture.completedFuture("zero-version-result"));
 
         // When - pass zero as version
-        String result = engine.setCache("key", 1, 0L, CacheRequestMethod.set());
+        String result = waitFuture(engine.setCache("key", 1, 0L, CacheRequestMethod.set()));
 
         // Then
         assertEquals("zero-version-result", result);
@@ -223,7 +224,7 @@ class KeyValueStoreEngineTest {
                 .thenReturn(CompletableFuture.completedFuture(true));
 
         // When
-        Boolean result = engine.setCache("complex-key", List.of(1, 2, 3), 5L, CacheRequestMethod.set());
+        Boolean result = waitFuture(engine.setCache("complex-key", List.of(1, 2, 3), 5L, CacheRequestMethod.set()));
 
         // Then
         assertTrue(result);
@@ -240,7 +241,7 @@ class KeyValueStoreEngineTest {
                 .thenReturn(CompletableFuture.completedFuture("large-version-result"));
 
         // When
-        String result = engine.setCache("key", 1, largeVersion, CacheRequestMethod.set());
+        String result = waitFuture(engine.setCache("key", 1, largeVersion, CacheRequestMethod.set()));
 
         // Then
         assertEquals("large-version-result", result);

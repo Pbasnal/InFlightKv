@@ -67,7 +67,6 @@ public class KeyValuePartition {
                             System.currentTimeMillis(),
                             keyValueStore.get(key).version() + 1));
                     resultFuture.complete(keyValueStore.get(key));
-
                 }
                 case SKIP -> resultFuture.complete(keyValueStore.get(key));
                 case VERSION_MISMATCH -> resultFuture.completeExceptionally(new ConcurrentUpdateException());
@@ -91,6 +90,14 @@ public class KeyValuePartition {
         return resultFuture;
     }
 
+    public CompletableFuture<Boolean> containsKey(DataKey key) {
+        CompletableFuture<Boolean> resultFuture = new CompletableFuture<>();
+
+        eventLoop.execute(() -> resultFuture.complete(keyValueStore.containsKey(key)));
+
+        return resultFuture;
+    }
+
     public long totalKeys() {
         return totalKeys.get();
     }
@@ -109,13 +116,6 @@ public class KeyValuePartition {
                 OperationType.UPDATE : OperationType.VERSION_MISMATCH;
     }
 
-    public CompletableFuture<Boolean> containsKey(DataKey key) {
-        CompletableFuture<Boolean> resultFuture = new CompletableFuture<>();
-
-        eventLoop.execute(() -> resultFuture.complete(keyValueStore.containsKey(key)));
-
-        return resultFuture;
-    }
 
     enum OperationType {
         INSERT,

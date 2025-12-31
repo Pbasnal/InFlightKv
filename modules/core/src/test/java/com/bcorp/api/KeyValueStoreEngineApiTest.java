@@ -13,6 +13,7 @@ import com.bcorp.exceptions.HandlerNotFoundException;
 import com.bcorp.kvstore.KeyValueStore;
 import com.bcorp.pojos.DataKey;
 import com.bcorp.pojos.DataValue;
+import com.bcorp.testutils.TestUtils;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -26,11 +27,12 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
 
+import static com.bcorp.testutils.TestUtils.waitFuture;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Integration tests for KeyValueStoreEngine API layer.
- * 
+ * <p>
  * These tests validate that the API can be implemented to suit different needs:
  * - Different data types (String, JSON, custom types)
  * - Different codec implementations
@@ -65,8 +67,8 @@ class KeyValueStoreEngineApiTest {
         String value = "test-value";
 
         // When
-        ResponseHolder<String> setResponse = engine.setCache(key, value, null, CacheRequestMethod.set());
-        ResponseHolder<String> getResponse = engine.getCache(key, CacheRequestMethod.get());
+        ResponseHolder<String> setResponse = waitFuture(engine.setCache(key, value, null, CacheRequestMethod.set()));
+        ResponseHolder<String> getResponse = waitFuture(engine.getCache(key, CacheRequestMethod.get()));
 
         // Then
         assertNotNull(setResponse);
@@ -90,21 +92,21 @@ class KeyValueStoreEngineApiTest {
         String updatedValue = "updated";
 
         // When - Set initial value
-        ResponseHolder<String> initialResponse = engine.setCache(key, initialValue, null, CacheRequestMethod.set());
-        
+        ResponseHolder<String> initialResponse = waitFuture(engine.setCache(key, initialValue, null, CacheRequestMethod.set()));
+
         // Then - Verify initial state
         assertEquals(0L, initialResponse.version());
         assertEquals(initialValue, initialResponse.data());
 
         // When - Update value
-        ResponseHolder<String> updateResponse = engine.setCache(key, updatedValue, null, CacheRequestMethod.set());
+        ResponseHolder<String> updateResponse = waitFuture(engine.setCache(key, updatedValue, null, CacheRequestMethod.set()));
 
         // Then - Verify update
         assertEquals(1L, updateResponse.version(), "Version should increment");
         assertEquals(updatedValue, updateResponse.data());
 
         // Verify final state
-        ResponseHolder<String> finalGet = engine.getCache(key, CacheRequestMethod.get());
+        ResponseHolder<String> finalGet = waitFuture(engine.getCache(key, CacheRequestMethod.get()));
         assertEquals(updatedValue, finalGet.data());
         assertEquals(1L, finalGet.version());
     }
@@ -117,7 +119,7 @@ class KeyValueStoreEngineApiTest {
         String nonExistentKey = "non-existent-key";
 
         // When
-        ResponseHolder<?> response = engine.getCache(nonExistentKey, CacheRequestMethod.get());
+        ResponseHolder<?> response = waitFuture(engine.getCache(nonExistentKey, CacheRequestMethod.get()));
 
         // Then
         assertNotNull(response);
@@ -139,8 +141,8 @@ class KeyValueStoreEngineApiTest {
         ObjectNode jsonNode = (ObjectNode) objectMapper.readTree(jsonString);
 
         // When
-        ResponseHolder<ObjectNode> setResponse = engine.setCache(key, jsonNode, null, CacheRequestMethod.set());
-        ResponseHolder<?> getResponse = engine.getCache(key, CacheRequestMethod.get());
+        ResponseHolder<ObjectNode> setResponse = waitFuture(engine.setCache(key, jsonNode, null, CacheRequestMethod.set()));
+        ResponseHolder<?> getResponse = waitFuture(engine.getCache(key, CacheRequestMethod.get()));
 
         // Then
         assertNotNull(setResponse);
@@ -151,7 +153,7 @@ class KeyValueStoreEngineApiTest {
         assertNotNull(getResponse);
         assertNull(getResponse.errorCode());
         assertTrue(getResponse.data() instanceof ObjectNode);
-        
+
         // Verify JSON content
         ObjectNode retrievedNode = (ObjectNode) getResponse.data();
         assertEquals(1, retrievedNode.get("data1").asInt());
@@ -164,21 +166,21 @@ class KeyValueStoreEngineApiTest {
         // Given
         setupJsonHandlers();
         String key = "merge-key";
-        
+
         // Initial data
         TestData initialData = new TestData(1, Arrays.asList(12, 13, 14, 15));
         ObjectNode initialNode = (ObjectNode) objectMapper.readTree(
-            objectMapper.writeValueAsString(initialData));
-        engine.setCache(key, initialNode, null, CacheRequestMethod.set());
+                objectMapper.writeValueAsString(initialData));
+        waitFuture(engine.setCache(key, initialNode, null, CacheRequestMethod.set()));
 
         // Update data (partial)
         objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
         TestData updateData = new TestData(2, null);
         ObjectNode updateNode = (ObjectNode) objectMapper.readTree(
-            objectMapper.writeValueAsString(updateData));
+                objectMapper.writeValueAsString(updateData));
 
         // When - Update with merge behavior
-        ResponseHolder<ObjectNode> updateResponse = engine.setCache(key, updateNode, null, CacheRequestMethod.set());
+        ResponseHolder<ObjectNode> updateResponse = waitFuture(engine.setCache(key, updateNode, null, CacheRequestMethod.set()));
 
         // Then - Should merge: data1 updated, data2s preserved
         assertNotNull(updateResponse);
@@ -198,14 +200,14 @@ class KeyValueStoreEngineApiTest {
         setupStringHandlers();
         String key = "version-key";
         String initialValue = "initial";
-        
+
         // Set initial value
-        ResponseHolder<String> initialResponse = engine.setCache(key, initialValue, null, CacheRequestMethod.set());
+        ResponseHolder<String> initialResponse = waitFuture(engine.setCache(key, initialValue, null, CacheRequestMethod.set()));
         Long initialVersion = initialResponse.version();
 
         // When - Update with correct version
         String updatedValue = "updated";
-        ResponseHolder<String> updateResponse = engine.setCache(key, updatedValue, initialVersion, CacheRequestMethod.set());
+        ResponseHolder<String> updateResponse = waitFuture(engine.setCache(key, updatedValue, initialVersion, CacheRequestMethod.set()));
 
         // Then
         assertNotNull(updateResponse);
@@ -221,16 +223,16 @@ class KeyValueStoreEngineApiTest {
         setupStringHandlers();
         String key = "version-mismatch-key";
         String value = "value";
-        
+
         // Set initial value
-        engine.setCache(key, value, null, CacheRequestMethod.set());
+        waitFuture(engine.setCache(key, value, null, CacheRequestMethod.set()));
 
         // When - Try to update with wrong version
         String newValue = "new-value";
-        
+
         // Note: The handler needs to check version filter and handle ConcurrentUpdateException
         // This test verifies the API layer passes the version filter correctly
-        ResponseHolder<String> response = engine.setCache(key, newValue, 999L, CacheRequestMethod.set());
+        ResponseHolder<String> response = waitFuture(engine.setCache(key, newValue, 999L, CacheRequestMethod.set()));
 
         // Then - Should handle version mismatch (implementation dependent)
         // The handler should either return error or throw exception
@@ -248,21 +250,21 @@ class KeyValueStoreEngineApiTest {
         setupRemoveHandler();
         String key = "remove-key";
         String value = "value-to-remove";
-        
-        engine.setCache(key, value, null, CacheRequestMethod.set());
+
+        waitFuture(engine.setCache(key, value, null, CacheRequestMethod.set()));
         assertEquals(1, keyValueStore.totalKeys());
 
         // When
-        ResponseHolder<?> removeResponse = engine.removeCache(key, CacheRequestMethod.get());
+        ResponseHolder<?> removeResponse = waitFuture(engine.removeCache(key, CacheRequestMethod.get()));
 
         // Then
         assertNotNull(removeResponse);
         assertNull(removeResponse.errorCode());
         assertEquals(value, removeResponse.data());
         assertEquals(0, keyValueStore.totalKeys(), "Key should be removed");
-        
+
         // Verify key no longer exists
-        ResponseHolder<?> getAfterRemove = engine.getCache(key, CacheRequestMethod.get());
+        ResponseHolder<?> getAfterRemove = waitFuture(engine.getCache(key, CacheRequestMethod.get()));
         assertEquals(404, getAfterRemove.errorCode());
     }
 
@@ -273,14 +275,14 @@ class KeyValueStoreEngineApiTest {
     void shouldSupportMultipleTypeCombinations() {
         // Given - Setup handlers for different types
         CodecProvider multiCodecProvider = new CodecProvider(Map.of(
-            String.class, new StringCodec()
+                String.class, new StringCodec()
         ));
-        
+
         HandlerResolver multiResolver = new HandlerResolver();
-        multiResolver.registerKeyOnlyHandler(CacheRequestMethod.get(), String.class, 
-            new StringGetRequestHandlerHandler(multiCodecProvider));
+        multiResolver.registerKeyOnlyHandler(CacheRequestMethod.get(), String.class,
+                new StringGetRequestHandlerHandler(multiCodecProvider));
         multiResolver.registerKeyValueHandler(CacheRequestMethod.set(), String.class, String.class,
-            new StringKeyStringValueSetHandlerHandler(multiCodecProvider.getCodec(String.class)));
+                new StringKeyStringValueSetHandlerHandler(multiCodecProvider.getCodec(String.class)));
 
         KeyValueStoreEngine multiEngine = new KeyValueStoreEngine(keyValueStore, multiResolver);
 
@@ -290,18 +292,18 @@ class KeyValueStoreEngineApiTest {
         String value1 = "value-1";
         String value2 = "value-2";
 
-        ResponseHolder<String> response1 = multiEngine.setCache(key1, value1, null, CacheRequestMethod.set());
-        ResponseHolder<String> response2 = multiEngine.setCache(key2, value2, null, CacheRequestMethod.set());
+        ResponseHolder<String> response1 = waitFuture(multiEngine.setCache(key1, value1, null, CacheRequestMethod.set()));
+        ResponseHolder<String> response2 = waitFuture(multiEngine.setCache(key2, value2, null, CacheRequestMethod.set()));
 
         // Then
         assertNotNull(response1);
         assertNotNull(response2);
         assertEquals(value1, response1.data());
         assertEquals(value2, response2.data());
-        
+
         // Verify both keys exist independently
-        ResponseHolder<?> get1 = multiEngine.getCache(key1, CacheRequestMethod.get());
-        ResponseHolder<?> get2 = multiEngine.getCache(key2, CacheRequestMethod.get());
+        ResponseHolder<?> get1 = waitFuture(multiEngine.getCache(key1, CacheRequestMethod.get()));
+        ResponseHolder<?> get2 = waitFuture(multiEngine.getCache(key2, CacheRequestMethod.get()));
         assertEquals(value1, get1.data());
         assertEquals(value2, get2.data());
     }
@@ -317,8 +319,8 @@ class KeyValueStoreEngineApiTest {
 
         // When & Then
         assertThrows(HandlerNotFoundException.class, () ->
-            emptyEngine.getCache(key, CacheRequestMethod.get()),
-            "Should throw HandlerNotFoundException when handler is not registered"
+                        emptyEngine.getCache(key, CacheRequestMethod.get()),
+                "Should throw HandlerNotFoundException when handler is not registered"
         );
     }
 
@@ -331,8 +333,8 @@ class KeyValueStoreEngineApiTest {
         String emptyValue = "";
 
         // When
-        ResponseHolder<String> setResponse = engine.setCache(key, emptyValue, null, CacheRequestMethod.set());
-        ResponseHolder<String> getResponse = engine.getCache(key, CacheRequestMethod.get());
+        ResponseHolder<String> setResponse = waitFuture(engine.setCache(key, emptyValue, null, CacheRequestMethod.set()));
+        ResponseHolder<String> getResponse = waitFuture(engine.getCache(key, CacheRequestMethod.get()));
 
         // Then
         assertNotNull(setResponse);
@@ -349,8 +351,8 @@ class KeyValueStoreEngineApiTest {
         String value = "special-value!@#$%^&*()";
 
         // When
-        ResponseHolder<String> setResponse = engine.setCache(key, value, null, CacheRequestMethod.set());
-        ResponseHolder<String> getResponse = engine.getCache(key, CacheRequestMethod.get());
+        ResponseHolder<String> setResponse = waitFuture(engine.setCache(key, value, null, CacheRequestMethod.set()));
+        ResponseHolder<String> getResponse = waitFuture(engine.getCache(key, CacheRequestMethod.get()));
 
         // Then
         assertNotNull(setResponse);
@@ -378,14 +380,14 @@ class KeyValueStoreEngineApiTest {
                     for (int j = 0; j < operationsPerThread; j++) {
                         String key = "concurrent-key-" + threadId + "-" + j;
                         String value = "value-" + threadId + "-" + j;
-                        
+
                         // Set
-                        ResponseHolder<String> setResponse = engine.setCache(key, value, null, CacheRequestMethod.set());
+                        ResponseHolder<String> setResponse = waitFuture(engine.setCache(key, value, null, CacheRequestMethod.set()));
                         assertNotNull(setResponse);
                         assertNull(setResponse.errorCode());
-                        
+
                         // Get
-                        ResponseHolder<?> getResponse = engine.getCache(key, CacheRequestMethod.get());
+                        ResponseHolder<?> getResponse = waitFuture(engine.getCache(key, CacheRequestMethod.get()));
                         assertNotNull(getResponse);
                         assertEquals(value, getResponse.data());
                     }
@@ -414,27 +416,27 @@ class KeyValueStoreEngineApiTest {
 
         // When - Perform sequence of operations
         // 1. Initial set
-        ResponseHolder<String> response1 = engine.setCache(key, "value1", null, CacheRequestMethod.set());
+        ResponseHolder<String> response1 = waitFuture(engine.setCache(key, "value1", null, CacheRequestMethod.set()));
         assertEquals(0L, response1.version());
         assertEquals("value1", response1.data());
 
         // 2. Update
-        ResponseHolder<String> response2 = engine.setCache(key, "value2", null, CacheRequestMethod.set());
+        ResponseHolder<String> response2 = waitFuture(engine.setCache(key, "value2", null, CacheRequestMethod.set()));
         assertEquals(1L, response2.version());
         assertEquals("value2", response2.data());
 
         // 3. Get
-        ResponseHolder<?> response3 = engine.getCache(key, CacheRequestMethod.get());
+        ResponseHolder<?> response3 = waitFuture(engine.getCache(key, CacheRequestMethod.get()));
         assertEquals("value2", response3.data());
         assertEquals(1L, response3.version());
 
         // 4. Update with version
-        ResponseHolder<String> response4 = engine.setCache(key, "value3", 1L, CacheRequestMethod.set());
+        ResponseHolder<String> response4 = waitFuture(engine.setCache(key, "value3", 1L, CacheRequestMethod.set()));
         assertEquals(2L, response4.version());
         assertEquals("value3", response4.data());
 
         // 5. Final get
-        ResponseHolder<?> response5 = engine.getCache(key, CacheRequestMethod.get());
+        ResponseHolder<?> response5 = waitFuture(engine.getCache(key, CacheRequestMethod.get()));
         assertEquals("value3", response5.data());
         assertEquals(2L, response5.version());
     }
@@ -454,8 +456,8 @@ class KeyValueStoreEngineApiTest {
         String largeString = largeValue.toString();
 
         // When
-        ResponseHolder<String> setResponse = engine.setCache(key, largeString, null, CacheRequestMethod.set());
-        ResponseHolder<String> getResponse = engine.getCache(key, CacheRequestMethod.get());
+        ResponseHolder<String> setResponse = waitFuture(engine.setCache(key, largeString, null, CacheRequestMethod.set()));
+        ResponseHolder<String> getResponse = waitFuture(engine.getCache(key, CacheRequestMethod.get()));
 
         // Then
         assertNotNull(setResponse);
@@ -471,29 +473,29 @@ class KeyValueStoreEngineApiTest {
     void shouldDemonstrateApiExtensibility() {
         // Given - Custom setup with specific handlers
         CodecProvider customCodecProvider = new CodecProvider(Map.of(
-            String.class, new StringCodec()
+                String.class, new StringCodec()
         ));
-        
+
         HandlerResolver customResolver = new HandlerResolver();
         customResolver.registerKeyOnlyHandler(CacheRequestMethod.get(), String.class,
-            new StringGetRequestHandlerHandler(customCodecProvider));
+                new StringGetRequestHandlerHandler(customCodecProvider));
         customResolver.registerKeyValueHandler(CacheRequestMethod.set(), String.class, String.class,
-            new StringKeyStringValueSetHandlerHandler(customCodecProvider.getCodec(String.class)));
+                new StringKeyStringValueSetHandlerHandler(customCodecProvider.getCodec(String.class)));
 
         KeyValueStoreEngine customEngine = new KeyValueStoreEngine(keyValueStore, customResolver);
 
         // When - Use custom engine
         String key = "extensible-key";
         String value = "extensible-value";
-        ResponseHolder<String> setResponse = customEngine.setCache(key, value, null, CacheRequestMethod.set());
-        ResponseHolder<?> getResponse = customEngine.getCache(key, CacheRequestMethod.get());
+        ResponseHolder<String> setResponse = waitFuture(customEngine.setCache(key, value, null, CacheRequestMethod.set()));
+        ResponseHolder<?> getResponse = waitFuture(customEngine.getCache(key, CacheRequestMethod.get()));
 
         // Then - Verify custom implementation works
         assertNotNull(setResponse);
         assertNotNull(getResponse);
         assertEquals(value, setResponse.data());
         assertEquals(value, getResponse.data());
-        
+
         // This demonstrates that the API can be extended with different handler implementations
         // without modifying the core KeyValueStoreEngine
     }
@@ -504,44 +506,44 @@ class KeyValueStoreEngineApiTest {
         // Given - Two different engine configurations
         KeyValueStore store1 = new KeyValueStore();
         KeyValueStore store2 = new KeyValueStore();
-        
+
         // Configuration 1: String handlers only
         HandlerResolver resolver1 = new HandlerResolver();
         CodecProvider codecProvider1 = new CodecProvider(Map.of(String.class, new StringCodec()));
         resolver1.registerKeyOnlyHandler(CacheRequestMethod.get(), String.class,
-            new StringGetRequestHandlerHandler(codecProvider1));
+                new StringGetRequestHandlerHandler(codecProvider1));
         resolver1.registerKeyValueHandler(CacheRequestMethod.set(), String.class, String.class,
-            new StringKeyStringValueSetHandlerHandler(codecProvider1.getCodec(String.class)));
+                new StringKeyStringValueSetHandlerHandler(codecProvider1.getCodec(String.class)));
         KeyValueStoreEngine engine1 = new KeyValueStoreEngine(store1, resolver1);
 
         // Configuration 2: JSON handlers
         HandlerResolver resolver2 = new HandlerResolver();
         CodecProvider codecProvider2 = new CodecProvider(Map.of(
-            String.class, new StringCodec(),
-            ObjectNode.class, new JsonCodec()
+                String.class, new StringCodec(),
+                ObjectNode.class, new JsonCodec()
         ));
         resolver2.registerKeyOnlyHandler(CacheRequestMethod.get(), String.class,
-            new StringGetRequestHandlerHandler(codecProvider2));
+                new StringGetRequestHandlerHandler(codecProvider2));
         resolver2.registerKeyValueHandler(CacheRequestMethod.set(), String.class, ObjectNode.class,
-            new StringKeyJsonValueSetHandlerHandler(codecProvider2.getCodec(ObjectNode.class)));
+                new StringKeyJsonValueSetHandlerHandler(codecProvider2.getCodec(ObjectNode.class)));
         KeyValueStoreEngine engine2 = new KeyValueStoreEngine(store2, resolver2);
 
         // When - Use both engines independently
         String key1 = "engine1-key";
         String value1 = "engine1-value";
-        ResponseHolder<String> response1 = engine1.setCache(key1, value1, null, CacheRequestMethod.set());
+        ResponseHolder<String> response1 = waitFuture(engine1.setCache(key1, value1, null, CacheRequestMethod.set()));
 
         String key2 = "engine2-key";
         ObjectNode jsonNode = objectMapper.createObjectNode().put("test", "value");
-        ResponseHolder<ObjectNode> response2 = engine2.setCache(key2, jsonNode, null, CacheRequestMethod.set());
+        ResponseHolder<ObjectNode> response2 = waitFuture(engine2.setCache(key2, jsonNode, null, CacheRequestMethod.set()));
 
         // Then - Both should work independently
         assertNotNull(response1);
         assertEquals(value1, response1.data());
-        
+
         assertNotNull(response2);
         assertNotNull(response2.data());
-        
+
         // Verify isolation
         assertEquals(1, store1.totalKeys());
         assertEquals(1, store2.totalKeys());
@@ -573,35 +575,35 @@ class KeyValueStoreEngineApiTest {
 
     private void setupStringHandlers() {
         codecProvider = new CodecProvider(Map.of(
-            String.class, new StringCodec()
+                String.class, new StringCodec()
         ));
         handlerResolver.registerKeyOnlyHandler(CacheRequestMethod.get(), String.class,
-            new StringGetRequestHandlerHandler(codecProvider));
+                new StringGetRequestHandlerHandler(codecProvider));
         handlerResolver.registerKeyValueHandler(CacheRequestMethod.set(), String.class, String.class,
-            new StringKeyStringValueSetHandlerHandler(codecProvider.getCodec(String.class)));
+                new StringKeyStringValueSetHandlerHandler(codecProvider.getCodec(String.class)));
         engine = new KeyValueStoreEngine(keyValueStore, handlerResolver);
     }
 
     private void setupJsonHandlers() {
         codecProvider = new CodecProvider(Map.of(
-            String.class, new StringCodec(),
-            ObjectNode.class, new JsonCodec()
+                String.class, new StringCodec(),
+                ObjectNode.class, new JsonCodec()
         ));
         handlerResolver.registerKeyOnlyHandler(CacheRequestMethod.get(), String.class,
-            new StringGetRequestHandlerHandler(codecProvider));
+                new StringGetRequestHandlerHandler(codecProvider));
         handlerResolver.registerKeyValueHandler(CacheRequestMethod.set(), String.class, ObjectNode.class,
-            new StringKeyJsonValueSetHandlerHandler(codecProvider.getCodec(ObjectNode.class)));
+                new StringKeyJsonValueSetHandlerHandler(codecProvider.getCodec(ObjectNode.class)));
         engine = new KeyValueStoreEngine(keyValueStore, handlerResolver);
     }
 
     private void setupRemoveHandler() {
         if (codecProvider == null) {
             codecProvider = new CodecProvider(Map.of(
-                String.class, new StringCodec()
+                    String.class, new StringCodec()
             ));
         }
         handlerResolver.registerKeyOnlyHandler(CacheRequestMethod.get(), String.class,
-            new StringRemoveRequestHandlerHandler(codecProvider));
+                new StringRemoveRequestHandlerHandler(codecProvider));
         engine = new KeyValueStoreEngine(keyValueStore, handlerResolver);
     }
 

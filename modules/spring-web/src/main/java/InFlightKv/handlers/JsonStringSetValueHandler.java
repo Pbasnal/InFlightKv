@@ -78,7 +78,7 @@ public class JsonStringSetValueHandler implements KeyValueRequestHandler<String,
 
         Either<DataValue, CacheError> dataToSet;
         if (enablePatching) {
-            dataToSet = patchRequest(inputValueNode, existingData);
+            dataToSet = mergeData(inputValueNode, existingData);
         } else {
             dataToSet = CacheHandlerUtils.encodeJsonNode(inputValueNode, jsonCodec);
         }
@@ -91,7 +91,7 @@ public class JsonStringSetValueHandler implements KeyValueRequestHandler<String,
                 .thenApply(dataValue -> CacheHandlerUtils.handleCacheResponse(dataValue, jsonCodec));
     }
 
-    private Either<DataValue, CacheError> patchRequest(JsonNode inputValueNode, DataValue existingData) {
+    private Either<DataValue, CacheError> mergeData(JsonNode inputValueNode, DataValue existingData) {
         Either<JsonNode, CacheError> decodingExistingNode = CacheHandlerUtils.decodeDataValue(existingData, jsonCodec);
         if (!decodingExistingNode.isSuccess()) {
             return Either.failed(decodingExistingNode.getErrorResponse());

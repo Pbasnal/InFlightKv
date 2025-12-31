@@ -42,6 +42,10 @@ public class HandlerResolver {
             CacheRequestMethod method,
             Class<K> keyClass,
             KeyOnlyRequestHandler<K, R> handler) {
+        KeyOnlyHandlerKey key = new KeyOnlyHandlerKey(method, keyClass);
+        if (keyOnlyHandlers.containsKey(key)) {
+            throw new DuplicateHandlerRegistration("Handler for " + key + " already registered");
+        }
         keyOnlyHandlers.put(new KeyOnlyHandlerKey(method, keyClass), handler);
     }
 
