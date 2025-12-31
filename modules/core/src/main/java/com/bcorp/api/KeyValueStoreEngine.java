@@ -44,10 +44,4 @@ public class KeyValueStoreEngine {
         KeyOnlyRequestHandler<K, R> getHandler = handlerResolver.resolveHandler(method, key);
         return getHandler.handle(key, Collections.emptyList(), keyValueStore);
     }
-
-    public <K, R> R removeCache(K key, CacheRequestMethod method) {
-        KeyOnlyRequestHandler<K, R> getHandler = handlerResolver.resolveHandler(method, key);
-        return getHandler.handle(key, Collections.emptyList(), keyValueStore).join();
-    }
-
 }

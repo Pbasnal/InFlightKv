@@ -21,7 +21,7 @@ public class JsonCodec implements Codec<JsonNode> {
             return new DataValue(encodedData,
                     ObjectNode.class,
                     System.currentTimeMillis(),
-                    -1L);
+                    0L);
         } catch (JsonProcessingException e) {
             throw new JsonEncodingFailed(e);
         }
