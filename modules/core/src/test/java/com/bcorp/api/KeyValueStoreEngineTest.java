@@ -14,6 +14,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 
 import static com.bcorp.testutils.TestUtils.waitFuture;
 import static org.junit.jupiter.api.Assertions.*;
@@ -165,9 +167,9 @@ class KeyValueStoreEngineTest {
         // When & Then
 
         Throwable thrown = assertThrows(Exception.class, () ->
-                waitFuture(engine.getCache("key", CacheRequestMethod.get())
-        ));
-        if (thrown instanceof CompletionException) {
+                engine.getCache("key", CacheRequestMethod.get()).get(1, TimeUnit.SECONDS)
+        );
+        if (thrown instanceof CompletionException || thrown instanceof ExecutionException) {
             thrown = thrown.getCause();
         }
 

@@ -3,7 +3,8 @@ package com.bcorp.codec;
 import com.bcorp.exceptions.JsonDecodingFailed;
 import com.bcorp.exceptions.JsonEncodingFailed;
 import com.bcorp.exceptions.JsonSerializationFailed;
-import com.bcorp.pojos.DataValue;
+import com.bcorp.pojos.CachedDataValue;
+import com.bcorp.pojos.RequestDataValue;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -15,23 +16,20 @@ public class JsonCodec implements Codec<JsonNode> {
     ObjectMapper mapper = new ObjectMapper();
 
     @Override
-    public DataValue encode(JsonNode data) {
+    public RequestDataValue encode(JsonNode data) {
         try {
             byte[] encodedData = mapper.writeValueAsBytes(data);
-            return new DataValue(encodedData,
-                    ObjectNode.class,
-                    System.currentTimeMillis(),
-                    -1L);
+            return new RequestDataValue(encodedData, ObjectNode.class);
         } catch (JsonProcessingException e) {
             throw new JsonEncodingFailed(e);
         }
     }
 
     @Override
-    public JsonNode decode(DataValue dataValue) {
+    public JsonNode decode(CachedDataValue requestDataValue) {
 
         try {
-            return mapper.readTree(dataValue.data());
+            return mapper.readTree(requestDataValue.data());
         } catch (IOException e) {
             throw new JsonDecodingFailed(e);
         }

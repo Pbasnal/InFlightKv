@@ -1,18 +1,20 @@
-package InFlightKv.handlers;
+package com.bcorp.InFlightKv.handlers;
 
-import InFlightKv.utils.CacheExceptionUtils;
-import InFlightKv.utils.CacheHandlerUtils;
-import InFlightKv.utils.Either;
-import InFlightKv.pojos.CacheError;
-import InFlightKv.pojos.CacheErrorCode;
-import InFlightKv.pojos.CacheResponse;
+import com.bcorp.InFlightKv.utils.CacheExceptionUtils;
+import com.bcorp.InFlightKv.utils.CacheHandlerUtils;
+import com.bcorp.InFlightKv.utils.Either;
+import com.bcorp.InFlightKv.pojos.CacheError;
+import com.bcorp.InFlightKv.pojos.CacheErrorCode;
+import com.bcorp.InFlightKv.pojos.CacheResponse;
+import com.bcorp.InFlightKv.utils.JsonUtils;
 import com.bcorp.api.filters.Filter;
 import com.bcorp.api.handlers.KeyValueRequestHandler;
 import com.bcorp.api.filters.VersionFilter;
 import com.bcorp.codec.JsonCodec;
 import com.bcorp.kvstore.KeyValueStore;
+import com.bcorp.pojos.CachedDataValue;
 import com.bcorp.pojos.DataKey;
-import com.bcorp.pojos.DataValue;
+import com.bcorp.pojos.RequestDataValue;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
@@ -65,7 +67,7 @@ public class JsonStringSetValueHandler implements KeyValueRequestHandler<String,
             DataKey key,
             JsonNode inputValueNode,
             Long expectedVersion,
-            DataValue existingData,
+            CachedDataValue existingData,
             KeyValueStore keyValueStore
     ) {
         if (existingData == null) {
@@ -76,7 +78,7 @@ public class JsonStringSetValueHandler implements KeyValueRequestHandler<String,
             return CompletableFuture.completedFuture(CacheResponse.failure(CacheErrorCode.CONFLICT, "Expected version doesn't match latest version"));
         }
 
-        Either<DataValue, CacheError> dataToSet;
+        Either<RequestDataValue, CacheError> dataToSet;
         if (enablePatching) {
             dataToSet = mergeData(inputValueNode, existingData);
         } else {
@@ -91,37 +93,17 @@ public class JsonStringSetValueHandler implements KeyValueRequestHandler<String,
                 .thenApply(dataValue -> CacheHandlerUtils.handleCacheResponse(dataValue, jsonCodec));
     }
 
-    private Either<DataValue, CacheError> mergeData(JsonNode inputValueNode, DataValue existingData) {
+    private Either<RequestDataValue, CacheError> mergeData(JsonNode inputValueNode, CachedDataValue existingData) {
         Either<JsonNode, CacheError> decodingExistingNode = CacheHandlerUtils.decodeDataValue(existingData, jsonCodec);
         if (!decodingExistingNode.isSuccess()) {
             return Either.failed(decodingExistingNode.getErrorResponse());
         }
 
-        ObjectNode merged = shallowMerge((ObjectNode) decodingExistingNode.getSuccessResponse(), (ObjectNode) inputValueNode);
+        ObjectNode merged = JsonUtils.shallowMerge((ObjectNode) decodingExistingNode.getSuccessResponse(), (ObjectNode) inputValueNode);
 
-        Either<DataValue, CacheError> encodingMergedValue = CacheHandlerUtils.encodeJsonNode(merged, jsonCodec);
+        Either<RequestDataValue, CacheError> encodingMergedValue = CacheHandlerUtils
+                .encodeJsonNode(merged, jsonCodec);
 
         return encodingMergedValue;
-    }
-
-    public ObjectNode shallowMerge(ObjectNode mainNode, ObjectNode updateNode) {
-        // 1. Handle null/missing inputs
-        if (mainNode == null || mainNode.isNull()) return updateNode.deepCopy();
-        if (updateNode == null || updateNode.isNull()) return mainNode.deepCopy();
-
-        // 2. Shallow merge only makes sense for Objects.
-        // If either is an Array or Primitive, the update usually replaces the main.
-        if (!mainNode.isObject() || !updateNode.isObject()) {
-            return updateNode.deepCopy();
-        }
-
-        // 3. Create a deep copy of the main node to prevent mutating the original
-        // This is critical if mainNode is stored in your In-Memory KV cache.
-        ObjectNode result = mainNode.deepCopy();
-
-        // 4. Use putAll for O(N) shallow replacement
-        result.setAll(updateNode);
-
-        return result;
     }
 }

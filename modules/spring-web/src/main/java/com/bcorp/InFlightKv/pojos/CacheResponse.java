@@ -1,4 +1,4 @@
-package InFlightKv.pojos;
+package com.bcorp.InFlightKv.pojos;
 
 public record CacheResponse<T>(
         T data,

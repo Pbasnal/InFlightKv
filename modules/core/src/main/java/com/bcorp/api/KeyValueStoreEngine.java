@@ -44,5 +44,4 @@ public class KeyValueStoreEngine {
         KeyOnlyRequestHandler<K, R> getHandler = handlerResolver.resolveHandler(method, key);
         return getHandler.handle(key, Collections.emptyList(), keyValueStore);
     }
-
 }
