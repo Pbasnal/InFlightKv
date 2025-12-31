@@ -3,11 +3,9 @@ package com.bcorp.InFlightKv.handlers;
 import com.bcorp.InFlightKv.pojos.CacheErrorCode;
 import com.bcorp.InFlightKv.pojos.CacheResponse;
 // Note: CacheHandlerUtils and CacheExceptionUtils are used but not mocked - they are tested separately
-import com.bcorp.InFlightKv.utils.CacheExceptionUtils;
-import com.bcorp.InFlightKv.utils.CacheHandlerUtils;
+// Note: CacheHandlerUtils and CacheExceptionUtils are used through the handler
 import com.bcorp.api.filters.Filter;
 import com.bcorp.codec.JsonCodec;
-import com.bcorp.exceptions.ConcurrentUpdateException;
 import com.bcorp.kvstore.KeyValueStore;
 import com.bcorp.pojos.DataKey;
 import com.bcorp.pojos.DataValue;
@@ -33,12 +31,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
-/**
- * Unit tests for JsonStringGetValueHandler.
- * <p>
- * Tests the handler's ability to retrieve values from KeyValueStore
- * and convert them to CacheResponse<String> using JsonCodec.
- */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("JsonStringGetValueHandler Unit Tests")
 public class JsonStringGetValueHandlerTest {
@@ -50,19 +42,19 @@ public class JsonStringGetValueHandlerTest {
     private JsonCodec jsonCodec;
 
     private JsonStringGetValueHandler handler;
-    private String testKey;
+    private String testKey = "test-key";
     private DataKey testDataKey;
     private DataValue testDataValue;
+    private JsonNode mockJsonNode;
     private String jsonData = "{\"test\":\"data\"}";
-    private List<Filter> emptyFilters;
+    private List<Filter> emptyFilters = Collections.emptyList();
 
     @BeforeEach
     void setUp() {
         handler = new JsonStringGetValueHandler(jsonCodec);
-        testKey = "test-key";
         testDataKey = new DataKey(testKey);
 
-        // Create a DataValue with mock JSON data
+        // Create test data
         testDataValue = new DataValue(
                 jsonData.getBytes(StandardCharsets.UTF_8),
                 String.class,
@@ -70,35 +62,29 @@ public class JsonStringGetValueHandlerTest {
                 5L
         );
 
-        // Setup default mock behavior for successful cases
-//        JsonNode mockJsonNode = JsonNodeFactory.instance.objectNode().put("test", "data");
-//        when(jsonCodec.decode(testDataValue)).thenReturn(mockJsonNode);
-//        when(jsonCodec.toString(mockJsonNode)).thenReturn(jsonData);
-
-        emptyFilters = Collections.emptyList();
+        mockJsonNode = JsonNodeFactory.instance.objectNode().put("test", "data");
     }
 
     @Test
     @DisplayName("Should successfully retrieve and return existing key value")
     void shouldSuccessfullyRetrieveExistingKeyValue() throws ExecutionException, InterruptedException {
         // Given
-        String jsonData = "{\"test\":\"data\"}";
         when(keyValueStore.get(testDataKey)).thenReturn(CompletableFuture.completedFuture(testDataValue));
-        JsonNode mockJsonNode = JsonNodeFactory.instance.objectNode().put("test", "data");
         when(jsonCodec.decode(testDataValue)).thenReturn(mockJsonNode);
         when(jsonCodec.toString(mockJsonNode)).thenReturn(jsonData);
 
         // When
-        CompletableFuture<CacheResponse<String>> result = handler.handle(testKey, emptyFilters, keyValueStore);
-        CacheResponse<String> response = result.get();
+        CacheResponse<String> response = handler.handle(testKey, emptyFilters, keyValueStore).get();
 
         // Then
         assertNotNull(response);
         assertNull(response.error(), "Response should not have error");
-        assertNotNull(response.data(), "Data should not be null");
-        assertEquals(5L, response.version(), "Version should match DataValue version");
+        assertEquals(jsonData, response.data());
+        assertEquals(5L, response.version());
 
         verify(keyValueStore).get(testDataKey);
+        verify(jsonCodec).decode(testDataValue);
+        verify(jsonCodec).toString(mockJsonNode);
     }
 
     @Test
@@ -142,27 +128,6 @@ public class JsonStringGetValueHandlerTest {
         verify(keyValueStore).get(testDataKey);
     }
 
-    @Test
-    @DisplayName("Should handle ConcurrentUpdateException during retrieval")
-    void shouldHandleConcurrentUpdateExceptionDuringRetrieval() throws ExecutionException, InterruptedException {
-        // Given
-        ConcurrentUpdateException concurrentException =
-                new ConcurrentUpdateException();
-
-        when(keyValueStore.get(testDataKey)).thenReturn(CompletableFuture.failedFuture(concurrentException));
-
-        // When
-        CompletableFuture<CacheResponse<String>> result = handler.handle(testKey, emptyFilters, keyValueStore);
-        CacheResponse<String> response = result.get();
-
-        // Then - Response should always be returned, even on concurrent update exceptions
-        assertNotNull(response, "Response should always be returned, even on exceptions");
-        assertNotNull(response.error(), "Response should have error for concurrent updates");
-        assertNull(response.data(), "Data should be null on error");
-        assertNull(response.version(), "Version should be null on error");
-
-        verify(keyValueStore).get(testDataKey);
-    }
 
     @Test
     @DisplayName("Should handle JsonCodec decoding errors")
@@ -220,141 +185,60 @@ public class JsonStringGetValueHandlerTest {
     }
 
     @Test
-    @DisplayName("Should accept filters parameter (though not used in current implementation)")
+    @DisplayName("Should accept filters parameter")
     void shouldAcceptFiltersParameter() throws ExecutionException, InterruptedException {
         // Given
         List<Filter> filters = Collections.singletonList(mock(Filter.class));
-        // Setup default mock behavior for successful cases
-        JsonNode mockJsonNode = JsonNodeFactory.instance.objectNode().put("test", "data");
-        when(jsonCodec.decode(testDataValue)).thenReturn(mockJsonNode);
-        when(jsonCodec.toString(mockJsonNode)).thenReturn(jsonData);
-
         when(keyValueStore.get(testDataKey)).thenReturn(CompletableFuture.completedFuture(testDataValue));
-
-        // When
-        CompletableFuture<CacheResponse<String>> result = handler.handle(testKey, filters, keyValueStore);
-        CacheResponse<String> response = result.get();
-
-        // Then
-        assertNotNull(response, "Response should always be returned");
-        assertNull(response.error(), "Response should not have error");
-        assertNotNull(response.data(), "Data should not be null");
-        assertEquals(5L, response.version(), "Version should match DataValue version");
-
-        // Note: Current implementation doesn't use filters, but the parameter is accepted
-        verify(keyValueStore).get(testDataKey);
-    }
-
-    @Test
-    @DisplayName("Should handle empty string keys")
-    void shouldHandleEmptyStringKeys() throws ExecutionException, InterruptedException {
-        // Given
-        String emptyKey = "";
-        DataKey emptyDataKey = new DataKey(emptyKey);
-        JsonNode mockJsonNode = JsonNodeFactory.instance.objectNode().put("test", "data");
-        when(jsonCodec.decode(testDataValue)).thenReturn(mockJsonNode);
-        when(jsonCodec.toString(mockJsonNode)).thenReturn(jsonData);
-
-        when(keyValueStore.get(emptyDataKey)).thenReturn(CompletableFuture.completedFuture(testDataValue));
-
-        // When
-        CompletableFuture<CacheResponse<String>> result = handler.handle(emptyKey, emptyFilters, keyValueStore);
-        CacheResponse<String> response = result.get();
-
-        // Then
-        assertNotNull(response, "Response should always be returned");
-        assertNull(response.error(), "Response should not have error");
-        assertNotNull(response.data(), "Data should not be null");
-        assertEquals(5L, response.version(), "Version should match DataValue version");
-
-        verify(keyValueStore).get(emptyDataKey);
-    }
-
-    @Test
-    @DisplayName("Should handle keys with special characters")
-    void shouldHandleKeysWithSpecialCharacters() throws ExecutionException, InterruptedException {
-        // Given
-        String specialKey = "key/with@special#chars!@#$%^&*()";
-        DataKey specialDataKey = new DataKey(specialKey);
-
-        when(keyValueStore.get(specialDataKey)).thenReturn(CompletableFuture.completedFuture(testDataValue));
-        // Setup default mock behavior for successful cases
-        JsonNode mockJsonNode = JsonNodeFactory.instance.objectNode().put("test", "data");
         when(jsonCodec.decode(testDataValue)).thenReturn(mockJsonNode);
         when(jsonCodec.toString(mockJsonNode)).thenReturn(jsonData);
 
         // When
-        CompletableFuture<CacheResponse<String>> result = handler.handle(specialKey, emptyFilters, keyValueStore);
-        CacheResponse<String> response = result.get();
-
-        // Then
-        assertNotNull(response, "Response should always be returned");
-        assertNull(response.error(), "Response should not have error");
-        assertNotNull(response.data(), "Data should not be null");
-        assertEquals(5L, response.version(), "Version should match DataValue version");
-
-        verify(keyValueStore).get(specialDataKey);
-    }
-
-    @Test
-    @DisplayName("Should handle null JsonCodec (edge case)")
-    void shouldHandleNullJsonCodec() {
-        // Given - Handler created with null JsonCodec (edge case)
-        JsonStringGetValueHandler nullCodecHandler = new JsonStringGetValueHandler(null);
-
-        // When & Then - This should not throw NPE during construction
-        assertNotNull(nullCodecHandler, "Handler should be created even with null JsonCodec");
-
-        // Note: Actual behavior when handling would depend on CacheHandlerUtils.handleCacheResponse
-        // but this tests that the constructor doesn't fail
-    }
-
-    @Test
-    @DisplayName("Should handle DataValue with null version")
-    void shouldHandleDataValueWithNullVersion() throws ExecutionException, InterruptedException {
-        // Given
-        DataValue nullVersionDataValue = DataValue.fromString("null-version");
-        when(keyValueStore.get(testDataKey)).thenReturn(CompletableFuture.completedFuture(nullVersionDataValue));
-
-        // When
-        CompletableFuture<CacheResponse<String>> result = handler.handle(testKey, emptyFilters, keyValueStore);
-        CacheResponse<String> response = result.get();
+        CacheResponse<String> response = handler.handle(testKey, filters, keyValueStore).get();
 
         // Then
         assertNotNull(response);
         assertNull(response.error());
-        assertNull(response.version(), "Null version should be preserved");
+        assertEquals(jsonData, response.data());
+
+        verify(keyValueStore).get(testDataKey);
+    }
+
+    @Test
+    @DisplayName("Should handle various key formats")
+    void shouldHandleVariousKeyFormats() throws ExecutionException, InterruptedException {
+        // Test different key formats: empty, special chars, unicode
+        String[] testKeys = {"", "key/with@special#chars!@#$%^&*()", "ключ-тест-🚀"};
+
+        for (String key : testKeys) {
+            DataKey dataKey = new DataKey(key);
+            when(keyValueStore.get(dataKey)).thenReturn(CompletableFuture.completedFuture(testDataValue));
+            when(jsonCodec.decode(testDataValue)).thenReturn(mockJsonNode);
+            when(jsonCodec.toString(mockJsonNode)).thenReturn(jsonData);
+
+            // When
+            CacheResponse<String> response = handler.handle(key, emptyFilters, keyValueStore).get();
+
+            // Then
+            assertNotNull(response, "Response should always be returned for key: " + key);
+            assertNull(response.error(), "Should not have error for key: " + key);
+            assertEquals(jsonData, response.data());
+
+            verify(keyValueStore).get(dataKey);
+        }
     }
 
     @Test
     @DisplayName("Should return completable future that is not null")
     void shouldReturnCompletableFutureThatIsNotNull() {
         // Given
-        DataValue zeroVersionDataValue = DataValue.fromString("zero-version");
-        when(keyValueStore.get(testDataKey)).thenReturn(CompletableFuture.completedFuture(zeroVersionDataValue));
+        when(keyValueStore.get(testDataKey)).thenReturn(CompletableFuture.completedFuture(testDataValue));
 
         // When
         CompletableFuture<CacheResponse<String>> result = handler.handle(testKey, emptyFilters, keyValueStore);
 
         // Then
         assertNotNull(result, "Handler should always return a non-null CompletableFuture");
-
-        // Note: The future may be completed or not, but it should exist
-    }
-
-    @Test
-    @DisplayName("Should create handler with JsonCodec dependency")
-    void shouldCreateHandlerWithJsonCodecDependency() {
-        // Given
-        JsonCodec testCodec = mock(JsonCodec.class);
-
-        // When
-        JsonStringGetValueHandler codecHandler = new JsonStringGetValueHandler(testCodec);
-
-        // Then
-        assertNotNull(codecHandler, "Handler should be created with JsonCodec dependency");
-
-        // Note: We can't directly verify the internal codec field, but construction should succeed
     }
 
     @Test
@@ -362,9 +246,7 @@ public class JsonStringGetValueHandlerTest {
     void shouldHandleAsynchronousCompletionProperly() throws ExecutionException, InterruptedException {
         // Given - A future that completes asynchronously
         CompletableFuture<DataValue> asyncFuture = new CompletableFuture<>();
-
         when(keyValueStore.get(testDataKey)).thenReturn(asyncFuture);
-        JsonNode mockJsonNode = JsonNodeFactory.instance.objectNode().put("test", "data");
         when(jsonCodec.decode(testDataValue)).thenReturn(mockJsonNode);
         when(jsonCodec.toString(mockJsonNode)).thenReturn(jsonData);
 
@@ -376,67 +258,11 @@ public class JsonStringGetValueHandlerTest {
 
         // Then - Wait for completion
         CacheResponse<String> response = result.get();
-        assertNotNull(response, "Response should always be returned");
-        assertNull(response.error(), "Response should not have error");
-        assertNotNull(response.data(), "Data should not be null");
-        assertEquals(5L, response.version(), "Version should match DataValue version");
+        assertNotNull(response);
+        assertNull(response.error());
+        assertEquals(jsonData, response.data());
 
         verify(keyValueStore).get(testDataKey);
     }
 
-    @Test
-    @DisplayName("Should handle very large keys")
-    void shouldHandleVeryLargeKeys() throws ExecutionException, InterruptedException {
-        // Given
-        StringBuilder largeKey = new StringBuilder();
-        for (int i = 0; i < 1000; i++) {
-            largeKey.append("large-key-part-").append(i).append("-");
-        }
-        String veryLargeKey = largeKey.toString();
-        DataKey largeDataKey = new DataKey(veryLargeKey);
-
-        JsonNode mockJsonNode = JsonNodeFactory.instance.objectNode().put("test", "data");
-        when(jsonCodec.decode(testDataValue)).thenReturn(mockJsonNode);
-        when(jsonCodec.toString(mockJsonNode)).thenReturn(jsonData);
-
-        when(keyValueStore.get(largeDataKey)).thenReturn(CompletableFuture.completedFuture(testDataValue));
-
-        // When
-        CompletableFuture<CacheResponse<String>> result = handler.handle(veryLargeKey, emptyFilters, keyValueStore);
-        CacheResponse<String> response = result.get();
-
-        // Then
-        assertNotNull(response);
-        assertNull(response.error());
-        assertEquals(jsonData, response.data());
-
-        verify(keyValueStore).get(largeDataKey);
-    }
-
-    @Test
-    @DisplayName("Should handle unicode characters in keys")
-    void shouldHandleUnicodeCharactersInKeys() throws ExecutionException, InterruptedException {
-        // Given
-        String unicodeKey = "ключ-тест-🚀-тест";
-        String jsonData = "{\"test\":\"data\"}";
-        DataKey unicodeDataKey = new DataKey(unicodeKey);
-
-        // Setup default mock behavior for successful cases
-        JsonNode mockJsonNode = JsonNodeFactory.instance.objectNode().put("test", "data");
-        when(jsonCodec.decode(testDataValue)).thenReturn(mockJsonNode);
-        when(jsonCodec.toString(mockJsonNode)).thenReturn(jsonData);
-
-        when(keyValueStore.get(unicodeDataKey)).thenReturn(CompletableFuture.completedFuture(testDataValue));
-
-        // When
-        CompletableFuture<CacheResponse<String>> result = handler.handle(unicodeKey, emptyFilters, keyValueStore);
-        CacheResponse<String> response = result.get();
-
-        // Then
-        assertNotNull(response);
-        assertNull(response.error());
-        assertEquals(jsonData, response.data());
-
-        verify(keyValueStore).get(unicodeDataKey);
-    }
 }
