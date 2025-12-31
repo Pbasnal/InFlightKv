@@ -1,7 +1,7 @@
-package com.bcorp.apiimpl;
+package com.bcorp.api.testimplementation;
 
-import com.bcorp.api.Filter;
-import com.bcorp.api.KeyOnlyRequestHandler;
+import com.bcorp.api.filters.Filter;
+import com.bcorp.api.handlers.KeyOnlyRequestHandler;
 import com.bcorp.codec.Codec;
 import com.bcorp.codec.CodecProvider;
 import com.bcorp.kvstore.KeyValueStore;

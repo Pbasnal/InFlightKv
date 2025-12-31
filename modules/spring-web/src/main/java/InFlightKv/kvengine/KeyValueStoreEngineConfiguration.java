@@ -4,6 +4,7 @@ import InFlightKv.handlers.JsonStringGetValueHandler;
 import InFlightKv.handlers.JsonStringSetValueHandler;
 //import InFlightKv.handlers.JsonStringPutValueHandler;
 import com.bcorp.api.*;
+import com.bcorp.api.handlers.HandlerResolver;
 import com.bcorp.codec.JsonCodec;
 import com.bcorp.kvstore.KeyValueStore;
 import org.springframework.context.annotation.Bean;

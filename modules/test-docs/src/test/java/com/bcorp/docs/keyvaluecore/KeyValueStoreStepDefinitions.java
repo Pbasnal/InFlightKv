@@ -10,8 +10,6 @@ import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
 
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -38,7 +36,7 @@ public class KeyValueStoreStepDefinitions {
 
     @Given("I set a value {string} for key {string}")
     public void iSetAValueForKey(String value, String key) {
-        DataKey dataKey = DataKey.from(key);
+        DataKey dataKey = DataKey.fromString(key);
         DataValue dataValue = DataValue.fromString(value);
         keyValueStore.set(dataKey, dataValue, null).join();
     }
@@ -91,13 +89,13 @@ public class KeyValueStoreStepDefinitions {
 
     @When("I get the value for key {string}")
     public void iGetTheValueForKey(String key) {
-        DataKey dataKey = DataKey.from(key);
+        DataKey dataKey = DataKey.fromString(key);
         retrievedValue = keyValueStore.get(dataKey).join();
     }
 
     @When("I update the value to {string} for key {string}")
     public void iUpdateTheValueToForKey(String value, String key) {
-        DataKey dataKey = DataKey.from(key);
+        DataKey dataKey = DataKey.fromString(key);
         DataValue dataValue = DataValue.fromString(value);
         keyValueStore.set(dataKey, dataValue, null).join();
         retrievedValue = keyValueStore.get(dataKey).join();
@@ -105,7 +103,7 @@ public class KeyValueStoreStepDefinitions {
 
     @When("I set a value {string} for key {string} with previous version {int}")
     public void iSetAValueForKeyWithPreviousVersionWhen(String value, String key, int prevVersion) {
-        DataKey dataKey = DataKey.from(key);
+        DataKey dataKey = DataKey.fromString(key);
         DataValue dataValue = DataValue.fromString(value);
         try {
             keyValueStore.set(dataKey, dataValue, (long) prevVersion).join();
@@ -116,7 +114,7 @@ public class KeyValueStoreStepDefinitions {
 
     @When("I remove the key {string}")
     public void iRemoveTheKey(String key) {
-        DataKey dataKey = DataKey.from(key);
+        DataKey dataKey = DataKey.fromString(key);
         initialKeyCount = keyValueStore.totalKeys();
         keyValueStore.remove(dataKey).join();
     }
@@ -129,14 +127,14 @@ public class KeyValueStoreStepDefinitions {
 
     @When("I get the value for key {string} in the new instance")
     public void iGetTheValueForKeyInTheNewInstance(String key) {
-        DataKey dataKey = DataKey.from(key);
+        DataKey dataKey = DataKey.fromString(key);
         retrievedValue = newKeyValueStore.get(dataKey).join();
     }
 
     @When("the operation should complete asynchronously")
     public void theOperationShouldCompleteAsynchronously() {
         // Verify that operations return CompletableFuture
-        DataKey dataKey = DataKey.from("async-key");
+        DataKey dataKey = DataKey.fromString("async-key");
         CompletableFuture<DataValue> future = keyValueStore.get(dataKey);
         assertNotNull(future, "Operation should return CompletableFuture");
         // The fact that we can call get() or join() confirms it's a CompletableFuture
@@ -145,7 +143,7 @@ public class KeyValueStoreStepDefinitions {
 
     @Then("the value at key {string} should be {string} with version {int}")
     public void theRetrievedValueShouldBe(String key, String expectedValue, int expectedVersion) {
-        DataKey dataKey = DataKey.from(key);
+        DataKey dataKey = DataKey.fromString(key);
         DataValue value = keyValueStore.get(dataKey).join();
 
         if (keyValueStore.containsKey(dataKey).join()) {
@@ -177,7 +175,7 @@ public class KeyValueStoreStepDefinitions {
 
     @Then("the value for key {string} should be {string}")
     public void theValueForKeyShouldBe(String key, String expectedValue) {
-        DataKey dataKey = DataKey.from(key);
+        DataKey dataKey = DataKey.fromString(key);
         DataValue value = keyValueStore.get(dataKey).join();
 
         assertNotNull(value, "Value should not be null");
@@ -196,7 +194,7 @@ public class KeyValueStoreStepDefinitions {
 
     @Then("getting the value for key {string} should return null")
     public void gettingTheValueForKeyShouldReturnNull(String key) {
-        DataKey dataKey = DataKey.from(key);
+        DataKey dataKey = DataKey.fromString(key);
         DataValue value = keyValueStore.get(dataKey).join();
         assertNull(value, "Value should be null after removal");
     }
@@ -232,7 +230,7 @@ public class KeyValueStoreStepDefinitions {
     @Then("the last access time should be updated")
     public void theLastAccessTimeShouldBeUpdated() {
         // Get the value again to check if access time was updated
-        DataKey dataKey = DataKey.from("access-time-key");
+        DataKey dataKey = DataKey.fromString("access-time-key");
         DataValue valueAfterAccess = keyValueStore.get(dataKey).join();
         assertNotNull(valueAfterAccess, "Value should exist");
         // The access time should be recent (within last second)
@@ -245,21 +243,21 @@ public class KeyValueStoreStepDefinitions {
 
     @Then("key {string} should not exist")
     public void keyShouldNotExist(String key) {
-        DataKey dataKey = DataKey.from(key);
+        DataKey dataKey = DataKey.fromString(key);
         DataValue value = keyValueStore.get(dataKey).join();
         assertNull(value, "Key should not exist");
     }
 
     @Then("key {string} should still exist")
     public void keyShouldStillExist(String key) {
-        DataKey dataKey = DataKey.from(key);
+        DataKey dataKey = DataKey.fromString(key);
         DataValue value = keyValueStore.get(dataKey).join();
         assertNotNull(value, "Key should still exist");
     }
 
     @Then("the value should still exist")
     public void theValueShouldStillExist() {
-        DataKey dataKey = DataKey.from("ttl-key");
+        DataKey dataKey = DataKey.fromString("ttl-key");
         DataValue value = keyValueStore.get(dataKey).join();
         assertNotNull(value, "Value should still exist");
     }
@@ -268,7 +266,7 @@ public class KeyValueStoreStepDefinitions {
     public void theOriginalValueShouldBeLost() {
         // This is verified by checking the new value in the previous step
         // The original value "Original" is overwritten by "Overwritten"
-        DataKey dataKey = DataKey.from("overwrite-test");
+        DataKey dataKey = DataKey.fromString("overwrite-test");
         DataValue value = keyValueStore.get(dataKey).join();
         assertNotNull(value, "Value should exist");
         String actualValue = new String(value.data(), StandardCharsets.UTF_8);

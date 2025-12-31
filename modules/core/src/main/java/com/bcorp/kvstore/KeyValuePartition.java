@@ -7,6 +7,7 @@ import com.bcorp.pojos.DataKey;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -33,11 +34,13 @@ public class KeyValuePartition {
                 resultFuture.complete(null);
             } else {
                 // to update the last access time
-                keyValueStore.put(key, new DataValue(value.data(),
+                DataValue updatedValue = new DataValue(value.data(),
                         value.dataType(),
                         System.currentTimeMillis(),
-                        value.version()));
-                resultFuture.complete(value);
+                        value.version());
+
+                keyValueStore.put(key, updatedValue);
+                resultFuture.complete(updatedValue);
             }
         });
         return resultFuture;
@@ -49,23 +52,22 @@ public class KeyValuePartition {
         CompletableFuture<DataValue> resultFuture = new CompletableFuture<>();
 
         eventLoop.execute(() -> {
-            switch (operationType(key, expectedOldVersion, value)) {
+            DataValue existingValue = keyValueStore.get(key);
+            OperationType operationType = Optional.of(existingValue)
+                    .map(dataValue -> operationType(expectedOldVersion, value, dataValue))
+                    .orElse(OperationType.INSERT);
+
+            switch (operationType) {
                 case INSERT -> {
-                    DataValue updatedValue = new DataValue(value.data(),
-                            value.dataType(),
-                            System.currentTimeMillis(),
-                            0);
+                    DataValue updatedValue = DataValue.createNewFrom(value);
                     keyValueStore.put(key, updatedValue); // returns null if the value doesn't exist
                     totalKeys.incrementAndGet();
                     resultFuture.complete(updatedValue);
                 }
                 case UPDATE -> {
-                    keyValueStore.put(key, new DataValue(value.data(),
-                            value.dataType(),
-                            System.currentTimeMillis(),
-                            keyValueStore.get(key).version() + 1));
-                    resultFuture.complete(keyValueStore.get(key));
-
+                    DataValue updatedValue = DataValue.createUpdatedFrom(value);
+                    keyValueStore.put(key, updatedValue);
+                    resultFuture.complete(updatedValue);
                 }
                 case SKIP -> resultFuture.complete(keyValueStore.get(key));
                 case VERSION_MISMATCH -> resultFuture.completeExceptionally(new ConcurrentUpdateException());
@@ -89,24 +91,6 @@ public class KeyValuePartition {
         return resultFuture;
     }
 
-    public long totalKeys() {
-        return totalKeys.get();
-    }
-
-    private OperationType operationType(DataKey key, Long expectedOldVersion, DataValue newValue) {
-
-        if (!keyValueStore.containsKey(key)) return OperationType.INSERT;
-
-        DataValue existingEntry = keyValueStore.get(key);
-        if (Arrays.equals(newValue.data(), existingEntry.data())) return OperationType.SKIP;
-
-        if (expectedOldVersion == null) return OperationType.UPDATE;
-
-        long actualOldVersion = existingEntry.version();
-        return actualOldVersion == expectedOldVersion ?
-                OperationType.UPDATE : OperationType.VERSION_MISMATCH;
-    }
-
     public CompletableFuture<Boolean> containsKey(DataKey key) {
         CompletableFuture<Boolean> resultFuture = new CompletableFuture<>();
 
@@ -114,6 +98,21 @@ public class KeyValuePartition {
 
         return resultFuture;
     }
+
+    public long totalKeys() {
+        return totalKeys.get();
+    }
+
+    private OperationType operationType(Long expectedOldVersion, DataValue newValue, DataValue oldValue) {
+        if (Arrays.equals(newValue.data(), oldValue.data())) return OperationType.SKIP;
+
+        if (expectedOldVersion == null) return OperationType.UPDATE;
+
+        long actualOldVersion = oldValue.version();
+        return actualOldVersion == expectedOldVersion ?
+                OperationType.UPDATE : OperationType.VERSION_MISMATCH;
+    }
+
 
     enum OperationType {
         INSERT,

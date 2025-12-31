@@ -1,4 +1,4 @@
-package com.bcorp.apiimpl;
+package com.bcorp.api.testimplementation;
 
 public record ResponseHolder<T>(
         T data,

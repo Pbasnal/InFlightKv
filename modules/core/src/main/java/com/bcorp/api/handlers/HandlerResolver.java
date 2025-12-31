@@ -1,5 +1,6 @@
-package com.bcorp.api;
+package com.bcorp.api.handlers;
 
+import com.bcorp.api.CacheRequestMethod;
 import com.bcorp.exceptions.DuplicateHandlerRegistration;
 import com.bcorp.exceptions.HandlerNotFoundException;
 
@@ -8,24 +9,23 @@ import java.util.Map;
 
 public class HandlerResolver {
 
-    /// ## Using class of types as keys for Handlers
-    /// There are multiple conditions based on which we want to resolve the handlers.
-    /// For example, to get a GetHandler amd RemoveHandler, want to resolve it based
-    /// on the Class of the key but for SetHandlers we want to resolve it based on
-    /// the Class of both Key and Value.
-    /// Since we require processing of Keys and Values based on their Class types,
-    /// This design helps to achieve that. And abstracting the Class types behind
-    /// a Key object like GetHandlerKey/SetHandlerKey allows us to add more parameters
-    /// in future.
-    ///
-    /// This has a major drawback. A lot of the code uses inheritance which will
-    /// fail the key equality. For example, JsonNode is the abstract class and
-    /// ObjectNode is the final implementation. While writing code, it'll be
-    /// a good practice to use JsonNode instead of ObjectNode but if JsonNode is
-    /// used to map the handler, then during runtime the map will not be able
-    /// to resolve the correct handler because ObjectNode will be used.
-    /// We can overcome the drawback by custom implementation of equals and contains
-    /// for the keys.
+    /**
+     * Handler resolver for type-safe key-value store operations.
+     *
+     * <p>This resolver manages handler registration and lookup using class types as keys.
+     * Operations are resolved based on different strategies:</p>
+     * <ul>
+     *   <li><strong>Key-only operations</strong> (GET, REMOVE, EXISTS): Resolved by key class type only</li>
+     *   <li><strong>Key-value operations</strong> (SET, PATCH, MERGE): Resolved by both key and value class types</li>
+     * </ul>
+     *
+     * <p>This enables type-safe processing while maintaining extensibility through HandlerKey abstractions.</p>
+     *
+     * <h3>Inheritance Considerations</h3>
+     * <p>Inheritance can cause resolution failures when abstract classes are registered but concrete
+     * implementations are used at runtime (e.g., registering for {@code JsonNode} but using {@code ObjectNode}).
+     * Mitigations include using concrete types consistently.</p>
+     */
 
     // Operations that depend ONLY on key type (GET, REMOVE, EXISTS)
     private final Map<KeyOnlyHandlerKey, KeyOnlyRequestHandler<?, ?>> keyOnlyHandlers;
@@ -42,6 +42,10 @@ public class HandlerResolver {
             CacheRequestMethod method,
             Class<K> keyClass,
             KeyOnlyRequestHandler<K, R> handler) {
+        KeyOnlyHandlerKey key = new KeyOnlyHandlerKey(method, keyClass);
+        if (keyOnlyHandlers.containsKey(key)) {
+            throw new DuplicateHandlerRegistration("Handler for " + key + " already registered");
+        }
         keyOnlyHandlers.put(new KeyOnlyHandlerKey(method, keyClass), handler);
     }
 

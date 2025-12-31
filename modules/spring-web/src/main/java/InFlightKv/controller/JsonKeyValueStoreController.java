@@ -22,24 +22,34 @@ public class JsonKeyValueStoreController {
 
     @GetMapping("/{key}")
     public Mono<ResponseEntity<CacheResponse<String>>> get(@PathVariable String key) {
-        return Mono.fromCallable(() -> kvEngine.<String, CacheResponse<String>>getCache(key, CacheRequestMethod.get()))
-                .map(this::convertToControllerResponse);
+        return Mono.fromCallable(() ->
+                        kvEngine.<String, CacheResponse<String>>getCache(key, CacheRequestMethod.get())
+                                .thenApply(this::convertToControllerResponse)
+                )
+                .flatMap(Mono::fromFuture);
     }
 
     @PutMapping("/{key}")
     public Mono<ResponseEntity<CacheResponse<String>>> put(@PathVariable String key,
                                                            @RequestBody Mono<String> jsonBody,
                                                            @RequestParam(required = false) Long ifVersion) {
-        return jsonBody.map(strBody -> kvEngine.<String, String, CacheResponse<String>>setCache(key, strBody, ifVersion, CacheRequestMethod.set()))
-                .map(this::convertToControllerResponse);
+        return jsonBody.map(strBody ->
+                        kvEngine.<String, String, CacheResponse<String>>setCache(key, strBody, ifVersion, CacheRequestMethod.set())
+                                .thenApply(this::convertToControllerResponse)
+                )
+                .flatMap(Mono::fromFuture);
     }
 
     @PatchMapping("/{key}")
     public Mono<ResponseEntity<CacheResponse<String>>> patch(@PathVariable String key,
-                                                           @RequestBody Mono<String> jsonBody,
-                                                           @RequestParam(required = false) Long ifVersion) {
-        return jsonBody.map(strBody -> kvEngine.<String, String, CacheResponse<String>>setCache(key, strBody, ifVersion, CustomCacheRequestMethod.patch()))
-                .map(this::convertToControllerResponse);
+                                                             @RequestBody Mono<String> jsonBody,
+                                                             @RequestParam(required = false) Long ifVersion) {
+        return jsonBody
+                .map(strBody ->
+                        kvEngine.<String, String, CacheResponse<String>>setCache(key, strBody, ifVersion, CustomCacheRequestMethod.patch())
+                                .thenApply(this::convertToControllerResponse)
+                )
+                .flatMap(Mono::fromFuture);
     }
 
     private ResponseEntity<CacheResponse<String>> convertToControllerResponse(CacheResponse<String> response) {
