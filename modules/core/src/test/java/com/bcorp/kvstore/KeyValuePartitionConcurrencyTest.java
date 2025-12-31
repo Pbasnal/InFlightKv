@@ -3,21 +3,17 @@ package com.bcorp.kvstore;
 import com.bcorp.exceptions.ConcurrentUpdateException;
 import com.bcorp.pojos.DataKey;
 import com.bcorp.pojos.DataValue;
-import io.cucumber.core.runtime.CucumberExecutionContext;
-import net.bytebuddy.implementation.bytecode.Throw;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
-import org.junit.jupiter.api.function.ThrowingConsumer;
-import org.junit.jupiter.api.function.ThrowingSupplier;
 
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.function.BiConsumer;
 
+import static com.bcorp.testutils.TestUtils.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class KeyValuePartitionConcurrencyTest {
@@ -212,11 +208,11 @@ class KeyValuePartitionConcurrencyTest {
 
                             // High-frequency operations without delays
                             DataValue value = DataValue.fromString("freq-" + tId + "-" + op);
-                            waitAndAssert(partition.set(key, value, null));
+                            waitFuture(partition.set(key, value, null));
                             keys.add(key.key());
                             if (op % 2 == 0) {
                                 // SET operation
-                                waitAndAssert(partition.get(key));
+                                waitFuture(partition.get(key));
                             }
 
                         }
@@ -386,41 +382,5 @@ class KeyValuePartitionConcurrencyTest {
             executor.shutdown();
             assertTrue(executor.awaitTermination(10, TimeUnit.SECONDS));
         }
-    }
-
-    private void waitAndAssert(CompletableFuture<DataValue> fut) {
-        assertDoesNotThrow(() -> fut.get(1, TimeUnit.SECONDS));
-    }
-
-    private void assertIfThrows(Class<?> throwableClass, CucumberExecutionContext.ThrowingRunnable runnable) {
-        try {
-            runnable.run();
-        } catch (Throwable e) {
-            if (e instanceof CompletionException || e instanceof ExecutionException) {
-                assertInstanceOf(throwableClass, e.getCause());
-            } else {
-                assertInstanceOf(throwableClass, e);
-            }
-        }
-    }
-
-    private CompletableFuture<Void>[] runInFutures(int numOfThreads,
-                                                   int operationsPerThread,
-                                                   BiConsumer<Integer, Integer> runnable,
-                                                   ExecutorService executor) {
-        CompletableFuture<Void>[] futures = new CompletableFuture[numOfThreads];
-        // Submit concurrent operations
-        for (int threadId = 0; threadId < numOfThreads; threadId++) {
-            final int tId = threadId;
-            CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
-                try {
-                    runnable.accept(tId, operationsPerThread);
-                } catch (Exception e) {
-                    throw new RuntimeException("Thread " + tId + " failed", e);
-                }
-            }, executor);
-            futures[threadId] = future;
-        }
-        return futures;
     }
 }

@@ -30,6 +30,10 @@ class KeyValuePartitionTest {
                 0L);
     }
 
+    private void waitAndAssert(CompletableFuture<DataValue> fut) {
+        assertDoesNotThrow(() -> fut.get(1, TimeUnit.SECONDS));
+    }
+
     @Test
     void shouldInitializeWithCorrectPartitionId() {
         KeyValuePartition testPartition = new KeyValuePartition(5);
@@ -48,22 +52,16 @@ class KeyValuePartitionTest {
     @Test
     void shouldStoreAndRetrieveValue() throws ExecutionException, InterruptedException, TimeoutException {
         // When - Set value
-        DataValue setResult = partition.set(testKey, testValue, null)
-                .get(1, TimeUnit.SECONDS);
-
-        // Then - Verify set result
-        assertNotNull(setResult);
-        assertEquals(0, setResult.version()); // Initial version
-        assertArrayEquals(testValue.data(), setResult.data());
+        waitAndAssert(partition.set(testKey, testValue, null));
         assertEquals(1, partition.totalKeys());
 
         // When - Get value
-        CompletableFuture<DataValue> getFuture = partition.get(testKey);
-        DataValue getResult = getFuture.get(1, TimeUnit.SECONDS);
+        DataValue getResult = partition.get(testKey).get(1, TimeUnit.SECONDS);
 
         // Then - Verify get result
         assertNotNull(getResult);
         assertArrayEquals(testValue.data(), getResult.data());
+        assertEquals(0L, getResult.version()); // Initial version
     }
 
     @Test
@@ -139,12 +137,11 @@ class KeyValuePartitionTest {
     @Test
     void shouldRemoveExistingKey() throws ExecutionException, InterruptedException, TimeoutException {
         // Given - Set value
-        partition.set(testKey, testValue, null).get();
+        waitAndAssert(partition.set(testKey, testValue, null));
         assertEquals(1, partition.totalKeys());
 
         // When - Remove
-        CompletableFuture<DataValue> removeFuture = partition.remove(testKey);
-        DataValue removedValue = removeFuture.get(1, TimeUnit.SECONDS);
+        DataValue removedValue = partition.remove(testKey).get(1, TimeUnit.SECONDS);
 
         // Then
         assertNotNull(removedValue);
@@ -152,8 +149,7 @@ class KeyValuePartitionTest {
         assertEquals(0, partition.totalKeys());
 
         // Verify key is gone
-        CompletableFuture<DataValue> getFuture = partition.get(testKey);
-        assertNull(getFuture.get(1, TimeUnit.SECONDS));
+        assertNull(partition.get(testKey).get(1, TimeUnit.SECONDS));
     }
 
     @Test
@@ -217,19 +213,18 @@ class KeyValuePartitionTest {
     @Test
     void shouldHandleOptimisticLockingWithCorrectVersion() throws ExecutionException, InterruptedException, TimeoutException {
         // Given - Set initial value
-        partition.set(testKey, testValue, null).get();
+        waitAndAssert(partition.set(testKey, testValue, null));
 
         // When - Update with correct version
         DataValue newValue = new DataValue("new-data".getBytes(StandardCharsets.UTF_8),
-                String.class,
-                System.currentTimeMillis(),
-                0L);
-        CompletableFuture<DataValue> future = partition.set(testKey, newValue, 0L); // Correct version
-        DataValue result = future.get(1, TimeUnit.SECONDS);
+                                          String.class,
+                                          System.currentTimeMillis(),
+                                          0L);
+        DataValue result = partition.set(testKey, newValue, 0L).get(1, TimeUnit.SECONDS); // Correct version
 
         // Then - Should succeed and increment version
         assertNotNull(result);
-        assertEquals(1, result.version());
+        assertEquals(1L, result.version());
         assertArrayEquals(newValue.data(), result.data());
     }
 
