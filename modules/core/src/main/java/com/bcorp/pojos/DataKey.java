@@ -1,7 +1,7 @@
 package com.bcorp.pojos;
 
 public record DataKey(String key) {
-    public static DataKey from(String str) {
+    public static DataKey fromString(String str) {
         return new DataKey(str);
     }
 }

@@ -56,7 +56,7 @@ public class KeyValueStoreConcurrencyTest {
         runInFutures(numThreads, keysPerThread, (threadId, numsKeys) -> {
             try {
                 for (int j = 0; j < keysPerThread; j++) {
-                    DataKey key = DataKey.from("thread-" + threadId + "-key-" + j);
+                    DataKey key = DataKey.fromString("thread-" + threadId + "-key-" + j);
                     DataValue value = DataValue.fromString("thread-" + threadId + "-value-" + j);
                     waitFuture(keyValueStore.set(key, value, null));
                     successCount.incrementAndGet();
@@ -75,7 +75,7 @@ public class KeyValueStoreConcurrencyTest {
         // Verify all keys can be retrieved correctly
         for (int i = 0; i < numThreads; i++) {
             for (int j = 0; j < keysPerThread; j++) {
-                DataKey key = DataKey.from("thread-" + i + "-key-" + j);
+                DataKey key = DataKey.fromString("thread-" + i + "-key-" + j);
                 DataValue value = waitFuture(keyValueStore.get(key));
                 assertNotNull(value);
                 assertEquals("thread-" + i + "-value-" + j,
@@ -97,7 +97,7 @@ public class KeyValueStoreConcurrencyTest {
 
         // Pre-populate some keys
         for (int i = 0; i < 50; i++) {
-            DataKey key = DataKey.from("pre-populated-" + i);
+            DataKey key = DataKey.fromString("pre-populated-" + i);
             DataValue value = DataValue.fromString("pre-value-" + i);
             waitFuture(keyValueStore.set(key, value, null));
         }
@@ -107,14 +107,14 @@ public class KeyValueStoreConcurrencyTest {
                 for (int j = 0; j < operationsPerThread; j++) {
                     if (j % 2 == 0) {
                         // Write operation
-                        DataKey key = DataKey.from("concurrent-write-" + threadId + "-" + j);
+                        DataKey key = DataKey.fromString("concurrent-write-" + threadId + "-" + j);
                         DataValue value = DataValue.fromString("write-value-" + threadId + "-" + j);
                         waitFuture(keyValueStore.set(key, value, null));
                         writeSuccessCount.incrementAndGet();
                     } else {
                         // Read operation
                         int randomKey = j % 50;
-                        DataKey key = DataKey.from("pre-populated-" + randomKey);
+                        DataKey key = DataKey.fromString("pre-populated-" + randomKey);
                         DataValue value = waitFuture(keyValueStore.get(key));
                         if (value != null) {
                             readSuccessCount.incrementAndGet();
@@ -140,7 +140,7 @@ public class KeyValueStoreConcurrencyTest {
     @Timeout(30)
     void shouldHandleConcurrentUpdatesToSameKey() {
         // Test concurrent updates to the same key - should handle version conflicts properly
-        DataKey sharedKey = DataKey.from("shared-key");
+        DataKey sharedKey = DataKey.fromString("shared-key");
         DataValue initialValue = DataValue.fromString("initial");
         waitFuture(keyValueStore.set(sharedKey, initialValue, null));
 
@@ -196,7 +196,7 @@ public class KeyValueStoreConcurrencyTest {
 
         // Pre-populate keys
         for (int i = 0; i < numKeys; i++) {
-            DataKey key = DataKey.from("remove-test-" + i);
+            DataKey key = DataKey.fromString("remove-test-" + i);
             DataValue value = DataValue.fromString("value-" + i);
             waitFuture(keyValueStore.set(key, value, null));
         }
@@ -212,7 +212,7 @@ public class KeyValueStoreConcurrencyTest {
                 // Each thread removes 10 keys
                 for (int j = 0; j < 10; j++) {
                     int keyIndex = (threadId * 10 + j) % numKeys;
-                    DataKey key = DataKey.from("remove-test-" + keyIndex);
+                    DataKey key = DataKey.fromString("remove-test-" + keyIndex);
                     DataValue removed = waitFuture(keyValueStore.remove(key));
                     if (removed != null) {
                         removeCount.incrementAndGet();
@@ -244,7 +244,7 @@ public class KeyValueStoreConcurrencyTest {
         runInFutures(numThreads, 0, (threadId, numOps) -> {
             try {
                 for (int j = 0; j < operationsPerThread; j++) {
-                    DataKey key = DataKey.from("stress-key-" + threadId + "-" + j);
+                    DataKey key = DataKey.fromString("stress-key-" + threadId + "-" + j);
 
                     // Mix of operations
                     int operation = j % 4;
@@ -298,7 +298,7 @@ public class KeyValueStoreConcurrencyTest {
 
         // Initialize keys
         for (int i = 0; i < numKeys; i++) {
-            DataKey key = DataKey.from("consistency-key-" + i);
+            DataKey key = DataKey.fromString("consistency-key-" + i);
             DataValue value = DataValue.fromString("initial-" + i);
             waitFuture(keyValueStore.set(key, value, null));
         }
@@ -310,7 +310,7 @@ public class KeyValueStoreConcurrencyTest {
             try {
                 for (int update = 0; update < updatesPerKey; update++) {
                     for (int keyIndex = 0; keyIndex < numKeys; keyIndex++) {
-                        DataKey key = DataKey.from("consistency-key-" + keyIndex);
+                        DataKey key = DataKey.fromString("consistency-key-" + keyIndex);
                         DataValue current = waitFuture(keyValueStore.get(key));
                         if (current != null) {
                             DataValue newValue = DataValue.fromString(
@@ -337,7 +337,7 @@ public class KeyValueStoreConcurrencyTest {
 
         // Verify all keys still exist and have valid data
         for (int i = 0; i < numKeys; i++) {
-            DataKey key = DataKey.from("consistency-key-" + i);
+            DataKey key = DataKey.fromString("consistency-key-" + i);
             DataValue value = waitFuture(keyValueStore.get(key));
             assertNotNull(value, "Key " + i + " should still exist");
             assertNotNull(value.data(), "Value data should not be null");
@@ -361,7 +361,7 @@ public class KeyValueStoreConcurrencyTest {
 
         // Pre-populate half the keys
         for (int i = 0; i < numKeys / 2; i++) {
-            DataKey key = DataKey.from("contains-key-" + i);
+            DataKey key = DataKey.fromString("contains-key-" + i);
             DataValue value = DataValue.fromString("value-" + i);
             waitFuture(keyValueStore.set(key, value, null));
         }
@@ -373,7 +373,7 @@ public class KeyValueStoreConcurrencyTest {
         runInFutures(numThreads, 0, (threadId, numOps) -> {
             try {
                 for (int j = 0; j < numKeys; j++) {
-                    DataKey key = DataKey.from("contains-key-" + j);
+                    DataKey key = DataKey.fromString("contains-key-" + j);
                     Boolean exists = waitFuture(keyValueStore.containsKey(key));
                     if (Boolean.TRUE.equals(exists)) {
                         trueCount.incrementAndGet();
@@ -414,7 +414,7 @@ public class KeyValueStoreConcurrencyTest {
             try {
                 for (int j = 0; j < operationsPerThread; j++) {
                     String keyStr = "mixed-op-key-" + threadId + "-" + j;
-                    DataKey key = DataKey.from(keyStr);
+                    DataKey key = DataKey.fromString(keyStr);
 
                     int operation = (threadId + j) % 5;
                     switch (operation) {
@@ -493,7 +493,7 @@ public class KeyValueStoreConcurrencyTest {
                     // Use different key patterns to ensure distribution across partitions
                     String keyStr = "partition-test-" + threadId + "-" + j + "-" +
                             System.nanoTime() + "-" + Thread.currentThread().getId();
-                    DataKey key = DataKey.from(keyStr);
+                    DataKey key = DataKey.fromString(keyStr);
                     DataValue value = DataValue.fromString("partition-value-" + threadId + "-" + j);
 
                     waitFuture(keyValueStore.set(key, value, null));
@@ -516,7 +516,7 @@ public class KeyValueStoreConcurrencyTest {
         // Verify all keys are still accessible
         assertEquals(numThreads * keysPerThread, keyValueStore.totalKeys());
         for (String keyStr : allKeys) {
-            DataKey key = DataKey.from(keyStr);
+            DataKey key = DataKey.fromString(keyStr);
             assertTrue(waitFuture(keyValueStore.containsKey(key)),
                     "Key should exist: " + keyStr);
         }

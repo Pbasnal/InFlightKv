@@ -41,7 +41,7 @@ class KeyValuePartitionConcurrencyTest {
                         String keyPrefix = "key-" + threadId;
 
                         for (int op = 0; op < numOperations; op++) {
-                            DataKey key = DataKey.from(keyPrefix);
+                            DataKey key = DataKey.fromString(keyPrefix);
                             DataValue value = DataValue.fromString("value-" + threadId + "-" + op);
 
                             // Alternate between different operations
@@ -68,7 +68,7 @@ class KeyValuePartitionConcurrencyTest {
                         }
 
                         // Final operation: set a predictable final value
-                        DataKey finalKey = DataKey.from("key-" + threadId);
+                        DataKey finalKey = DataKey.fromString("key-" + threadId);
                         DataValue finalValue = DataValue.fromString("final-value-" + threadId);
                         assertDoesNotThrow(() -> partition.set(finalKey, finalValue, null).get(2, TimeUnit.SECONDS));
                     },
@@ -79,7 +79,7 @@ class KeyValuePartitionConcurrencyTest {
 
             // Verify all keys have expected values
             for (int i = 0; i < numThreads; i++) {
-                DataKey key = DataKey.from("key-" + i);
+                DataKey key = DataKey.fromString("key-" + i);
                 DataValue value = partition.get(key).get(5, TimeUnit.SECONDS);
                 assertNotNull(value, "Key " + i + " should exist");
                 assertEquals("final-value-" + i, new String(value.data(), StandardCharsets.UTF_8));
@@ -98,7 +98,7 @@ class KeyValuePartitionConcurrencyTest {
     void shouldHandleConcurrentOperationsOnSameKeyWithVersioning() throws InterruptedException, ExecutionException, TimeoutException {
         int numThreads = 5;
         ExecutorService executor = Executors.newFixedThreadPool(numThreads);
-        DataKey sharedKey = DataKey.from("shared-key");
+        DataKey sharedKey = DataKey.fromString("shared-key");
         AtomicInteger successfulUpdates = new AtomicInteger(0);
 
         try {
@@ -151,7 +151,7 @@ class KeyValuePartitionConcurrencyTest {
         try {
             CompletableFuture<Void>[] futures = runInFutures(numThreads, 0,
                     (tId, ops) -> {
-                        DataKey key = DataKey.from("test-key-" + tId);
+                        DataKey key = DataKey.fromString("test-key-" + tId);
 
                         // Each thread performs a cycle: insert -> remove -> insert
                         for (int cycle = 0; cycle < 3; cycle++) {
@@ -204,7 +204,7 @@ class KeyValuePartitionConcurrencyTest {
             CompletableFuture<Void>[] futures = runInFutures(numThreads, operationsPerThread,
                     (tId, ops) -> {
                         for (int op = 0; op < operationsPerThread; op++) {
-                            DataKey key = DataKey.from("freq-key-" + (tId * operationsPerThread + op) % 50); // Reuse 50 keys
+                            DataKey key = DataKey.fromString("freq-key-" + (tId * operationsPerThread + op) % 50); // Reuse 50 keys
 
                             // High-frequency operations without delays
                             DataValue value = DataValue.fromString("freq-" + tId + "-" + op);
@@ -226,7 +226,7 @@ class KeyValuePartitionConcurrencyTest {
 
             // Verify all keys exist and have reasonable versions
             for (int i = 0; i < 50; i++) {
-                DataKey key = DataKey.from("freq-key-" + i);
+                DataKey key = DataKey.fromString("freq-key-" + i);
                 DataValue value = partition.get(key).get(5, TimeUnit.SECONDS);
                 assertNotNull(value, "Key " + i + " should exist");
                 assertTrue(value.version() >= 0, "Key " + i + " should have valid version");
@@ -244,7 +244,7 @@ class KeyValuePartitionConcurrencyTest {
         // Setup: Pre-populate with test data
         int numKeys = 20;
         for (int i = 0; i < numKeys; i++) {
-            DataKey key = DataKey.from("readonly-key-" + i);
+            DataKey key = DataKey.fromString("readonly-key-" + i);
             DataValue value = new DataValue(
                     ("readonly-value-" + i).getBytes(StandardCharsets.UTF_8),
                     String.class,
@@ -268,7 +268,7 @@ class KeyValuePartitionConcurrencyTest {
                         for (int read = 0; read < readsPerThread; read++) {
                             // Read random keys
                             int keyIndex = ThreadLocalRandom.current().nextInt(numKeys);
-                            DataKey key = DataKey.from("readonly-key-" + keyIndex);
+                            DataKey key = DataKey.fromString("readonly-key-" + keyIndex);
 
                             DataValue value = partition.get(key).get(2, TimeUnit.SECONDS);
                             assertNotNull(value, "Read-only key should exist in thread " + tId);
@@ -295,7 +295,7 @@ class KeyValuePartitionConcurrencyTest {
 
             // Verify no keys were corrupted
             for (int i = 0; i < numKeys; i++) {
-                DataKey key = DataKey.from("readonly-key-" + i);
+                DataKey key = DataKey.fromString("readonly-key-" + i);
                 DataValue value = partition.get(key).get(5, TimeUnit.SECONDS);
                 assertNotNull(value, "Key " + i + " should still exist");
                 assertEquals("readonly-value-" + i, new String(value.data(), StandardCharsets.UTF_8));
@@ -325,7 +325,7 @@ class KeyValuePartitionConcurrencyTest {
                 CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
                     try {
                         for (int op = 0; op < operationsPerThread; op++) {
-                            DataKey key = DataKey.from("mixed-key-" + (tId + op) % 10); // 10 shared keys
+                            DataKey key = DataKey.fromString("mixed-key-" + (tId + op) % 10); // 10 shared keys
 
                             DataValue value = new DataValue(
                                     ("mixed-write-" + tId + "-" + op).getBytes(StandardCharsets.UTF_8),
@@ -349,7 +349,7 @@ class KeyValuePartitionConcurrencyTest {
                 CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
                     try {
                         for (int op = 0; op < operationsPerThread; op++) {
-                            DataKey key = DataKey.from("mixed-key-" + op % 10); // Read from same 10 keys
+                            DataKey key = DataKey.fromString("mixed-key-" + op % 10); // Read from same 10 keys
 
                             DataValue value = partition.get(key).get(2, TimeUnit.SECONDS);
                             if (value != null) {
@@ -372,7 +372,7 @@ class KeyValuePartitionConcurrencyTest {
 
             // All keys should exist and have been updated
             for (int i = 0; i < 10; i++) {
-                DataKey key = DataKey.from("mixed-key-" + i);
+                DataKey key = DataKey.fromString("mixed-key-" + i);
                 DataValue value = partition.get(key).get(5, TimeUnit.SECONDS);
                 assertNotNull(value, "Key " + i + " should exist");
                 assertTrue(value.version() >= 0, "Key " + i + " should have been updated");

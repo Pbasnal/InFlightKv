@@ -28,7 +28,7 @@ class KeyValueStoreTest {
         // We can verify this by checking that operations work correctly
         // and that the total keys are properly aggregated
 
-        DataKey key = DataKey.from("test-key");
+        DataKey key = DataKey.fromString("test-key");
         DataValue value = DataValue.fromString("test-value");
 
         // Set a value
@@ -47,7 +47,7 @@ class KeyValueStoreTest {
     @Test
     void shouldStoreAndRetrieveValues() {
         // Given
-        DataKey key = DataKey.from("test-key");
+        DataKey key = DataKey.fromString("test-key");
         DataValue value = DataValue.fromString("test-value");
 
         // When - Set value
@@ -63,7 +63,7 @@ class KeyValueStoreTest {
     @Test
     void shouldReturnNullForNonExistentKey() {
         // When
-        DataValue result = waitFuture(keyValueStore.get(DataKey.from("non-existent")));
+        DataValue result = waitFuture(keyValueStore.get(DataKey.fromString("non-existent")));
 
         // Then
         assertNull(result);
@@ -71,7 +71,7 @@ class KeyValueStoreTest {
 
     @Test
     void shouldCheckKeyExistence() {
-        DataKey key = DataKey.from("existence-test");
+        DataKey key = DataKey.fromString("existence-test");
 
         // Initially should not exist
         assertFalse(waitFuture(keyValueStore.containsKey(key)));
@@ -88,7 +88,7 @@ class KeyValueStoreTest {
     @Test
     void shouldRemoveExistingKey() {
         // Given
-        DataKey key = DataKey.from("removal-test");
+        DataKey key = DataKey.fromString("removal-test");
         DataValue value = DataValue.fromString("to-be-removed");
 
         waitFuture(keyValueStore.set(key, value, null));
@@ -107,7 +107,7 @@ class KeyValueStoreTest {
     @Test
     void shouldReturnNullWhenRemovingNonExistentKey() {
         // When
-        DataValue result = waitFuture(keyValueStore.remove(DataKey.from("non-existent")));
+        DataValue result = waitFuture(keyValueStore.remove(DataKey.fromString("non-existent")));
 
         // Then
         assertNull(result);
@@ -117,7 +117,7 @@ class KeyValueStoreTest {
     @Test
     void shouldHandleVersionBasedUpdates() {
         // Given
-        DataKey key = DataKey.from("version-test");
+        DataKey key = DataKey.fromString("version-test");
         DataValue initialValue = DataValue.fromString("initial");
 
         waitFuture(keyValueStore.set(key, initialValue, null));
@@ -136,7 +136,7 @@ class KeyValueStoreTest {
     @Test
     void shouldThrowConcurrentUpdateExceptionForVersionConflict() {
         // Given
-        DataKey key = DataKey.from("conflict-test");
+        DataKey key = DataKey.fromString("conflict-test");
         keyValueStore.set(key, DataValue.fromString("initial"), null);
 
         // When - Try to update with wrong version
@@ -156,7 +156,7 @@ class KeyValueStoreTest {
 
         int numKeys = 100;
         for (int i = 0; i < numKeys; i++) {
-            DataKey key = DataKey.from("partition-test-" + i);
+            DataKey key = DataKey.fromString("partition-test-" + i);
             DataValue value = DataValue.fromString("value-" + i);
             waitFuture(keyValueStore.set(key, value, null));
         }
@@ -165,7 +165,7 @@ class KeyValueStoreTest {
         assertEquals(numKeys, keyValueStore.totalKeys());
 
         for (int i = 0; i < numKeys; i++) {
-            DataKey key = DataKey.from("partition-test-" + i);
+            DataKey key = DataKey.fromString("partition-test-" + i);
             assertTrue(waitFuture(keyValueStore.containsKey(key)));
 
             DataValue value = waitFuture(keyValueStore.get(key));
@@ -184,7 +184,7 @@ class KeyValueStoreTest {
         // Add keys in batches
         for (int batch = 0; batch < 5; batch++) {
             for (int i = 0; i < 10; i++) {
-                DataKey key = DataKey.from("batch-" + batch + "-key-" + i);
+                DataKey key = DataKey.fromString("batch-" + batch + "-key-" + i);
                 DataValue value = DataValue.fromString("batch-" + batch + "-value-" + i);
                 waitFuture(keyValueStore.set(key, value, null));
             }
@@ -194,7 +194,7 @@ class KeyValueStoreTest {
 
         // Remove some keys
         for (int i = 0; i < 10; i++) {
-            DataKey key = DataKey.from("batch-0-key-" + i);
+            DataKey key = DataKey.fromString("batch-0-key-" + i);
             waitFuture(keyValueStore.remove(key));
         }
 
@@ -206,9 +206,9 @@ class KeyValueStoreTest {
         // Test that operations on different keys work correctly
         // This indirectly tests that partitioning works properly
 
-        DataKey key1 = DataKey.from("concurrent-1");
-        DataKey key2 = DataKey.from("concurrent-2");
-        DataKey key3 = DataKey.from("concurrent-3");
+        DataKey key1 = DataKey.fromString("concurrent-1");
+        DataKey key2 = DataKey.fromString("concurrent-2");
+        DataKey key3 = DataKey.fromString("concurrent-3");
 
         // Set different values
         waitFuture(keyValueStore.set(key1, DataValue.fromString("value1"), null));
@@ -236,9 +236,9 @@ class KeyValueStoreTest {
         // Since we can't control hashing, we'll use keys that are likely to collide
         // and verify that operations still work correctly
 
-        DataKey key1 = DataKey.from("collision-test-1");
-        DataKey key2 = DataKey.from("collision-test-2");
-        DataKey key3 = DataKey.from("different-key");
+        DataKey key1 = DataKey.fromString("collision-test-1");
+        DataKey key2 = DataKey.fromString("collision-test-2");
+        DataKey key3 = DataKey.fromString("different-key");
 
         // Set values
         waitFuture(keyValueStore.set(key1, DataValue.fromString("collision-value-1"), null));
@@ -255,7 +255,7 @@ class KeyValueStoreTest {
     @Test
     void shouldHandleEmptyStringValues() {
         // Test with empty string values
-        DataKey key = DataKey.from("empty-test");
+        DataKey key = DataKey.fromString("empty-test");
         DataValue emptyValue = DataValue.fromString("");
 
         waitFuture(keyValueStore.set(key, emptyValue, null));
@@ -269,7 +269,7 @@ class KeyValueStoreTest {
     @Test
     void shouldHandleSpecialCharactersInKeysAndValues() {
         // Test with special characters
-        DataKey specialKey = DataKey.from("special-key!@#$%^&*()");
+        DataKey specialKey = DataKey.fromString("special-key!@#$%^&*()");
         DataValue specialValue = DataValue.fromString("special-value!@#$%^&*()");
 
         waitFuture(keyValueStore.set(specialKey, specialValue, null));
@@ -286,7 +286,7 @@ class KeyValueStoreTest {
 
         // Add keys
         for (int i = 0; i < numKeys; i++) {
-            DataKey key = DataKey.from("large-test-key-" + i);
+            DataKey key = DataKey.fromString("large-test-key-" + i);
             DataValue value = DataValue.fromString("large-test-value-" + i);
             waitFuture(keyValueStore.set(key, value, null));
         }
@@ -296,7 +296,7 @@ class KeyValueStoreTest {
         // Verify random sampling
         for (int i = 0; i < 10; i++) {
             int randomIndex = (int) (Math.random() * numKeys);
-            DataKey key = DataKey.from("large-test-key-" + randomIndex);
+            DataKey key = DataKey.fromString("large-test-key-" + randomIndex);
             DataValue value = waitFuture(keyValueStore.get(key));
             assertNotNull(value);
             assertEquals("large-test-value-" + randomIndex, new String(value.data(), StandardCharsets.UTF_8));
@@ -304,7 +304,7 @@ class KeyValueStoreTest {
 
         // Remove half the keys
         for (int i = 0; i < numKeys / 2; i++) {
-            DataKey key = DataKey.from("large-test-key-" + i);
+            DataKey key = DataKey.fromString("large-test-key-" + i);
             waitFuture(keyValueStore.remove(key));
         }
 
@@ -317,7 +317,7 @@ class KeyValueStoreTest {
 
         DataKey[] keys = new DataKey[10];
         for (int i = 0; i < 10; i++) {
-            keys[i] = DataKey.from("version-consistency-" + i);
+            keys[i] = DataKey.fromString("version-consistency-" + i);
             waitFuture(keyValueStore.set(keys[i], DataValue.fromString("initial-" + i), null));
         }
 

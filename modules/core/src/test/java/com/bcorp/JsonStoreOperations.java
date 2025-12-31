@@ -102,11 +102,11 @@ public class JsonStoreOperations {
 
         KeyValueStore kvStore = new KeyValueStore();
 
-        kvStore.set(DataKey.from("d1"),
+        kvStore.set(DataKey.fromString("d1"),
                 DataValue.fromString(jsonString),
                 null).join();
 
-        DataValue value = kvStore.get(DataKey.from("d1")).join();
+        DataValue value = kvStore.get(DataKey.fromString("d1")).join();
 
         String storedJsonString = new String(value.data(), StandardCharsets.UTF_8);
 

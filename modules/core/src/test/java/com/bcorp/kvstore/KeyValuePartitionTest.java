@@ -23,7 +23,7 @@ class KeyValuePartitionTest {
     @BeforeEach
     void setUp() {
         partition = new KeyValuePartition(0);
-        testKey = DataKey.from("test-key");
+        testKey = DataKey.fromString("test-key");
         testValue = new DataValue("test-data".getBytes(StandardCharsets.UTF_8),
                 String.class,
                 System.currentTimeMillis(),
@@ -182,9 +182,9 @@ class KeyValuePartitionTest {
 
     @Test
     void shouldTrackTotalKeysCorrectly() throws ExecutionException, InterruptedException {
-        DataKey key1 = DataKey.from("key1");
-        DataKey key2 = DataKey.from("key2");
-        DataKey key3 = DataKey.from("key3");
+        DataKey key1 = DataKey.fromString("key1");
+        DataKey key2 = DataKey.fromString("key2");
+        DataKey key3 = DataKey.fromString("key3");
 
         // Initially empty
         assertEquals(0, partition.totalKeys());
@@ -206,7 +206,7 @@ class KeyValuePartitionTest {
         assertEquals(2, partition.totalKeys());
 
         // Try to remove non-existent key (should not change count)
-        partition.remove(DataKey.from("non-existent")).get();
+        partition.remove(DataKey.fromString("non-existent")).get();
         assertEquals(2, partition.totalKeys());
     }
 
@@ -231,8 +231,8 @@ class KeyValuePartitionTest {
     @Test
     void shouldHandleMultipleConcurrentOperations() throws ExecutionException, InterruptedException, TimeoutException {
         // Test concurrent operations on different keys
-        DataKey key1 = DataKey.from("key1");
-        DataKey key2 = DataKey.from("key2");
+        DataKey key1 = DataKey.fromString("key1");
+        DataKey key2 = DataKey.fromString("key2");
 
         DataValue value1 = new DataValue("data1".getBytes(StandardCharsets.UTF_8), String.class, System.currentTimeMillis(), 0L);
         DataValue value2 = new DataValue("data2".getBytes(StandardCharsets.UTF_8), String.class, System.currentTimeMillis(), 0L);
