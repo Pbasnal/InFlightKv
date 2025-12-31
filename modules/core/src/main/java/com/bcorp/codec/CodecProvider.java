@@ -9,6 +9,7 @@ public class CodecProvider {
         this.allCodecs = allCodecs;
     }
 
+    @SuppressWarnings("unchecked")
     public <C, T extends Codec<C>> T getCodec(Class<C> type) {
         return (T) allCodecs.get(type);
     }

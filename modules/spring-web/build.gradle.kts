@@ -27,19 +27,25 @@ repositories {
 
 dependencies {
     implementation("com.fasterxml.jackson.core:jackson-core:2.15.0")
-    implementation("com.fasterxml.jackson.core:jackson-databind:2.13.4.2")
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.15.0")
 
     implementation(project(":modules:core"))
     implementation("org.springframework.boot:spring-boot-starter-webflux")
 
     compileOnly("org.projectlombok:lombok")
-
     annotationProcessor("org.projectlombok:lombok")
 
-    testImplementation("org.springframework.boot:spring-boot-starter-webflux-test")
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    testImplementation("org.springframework.boot:spring-boot-starter-test") // Use this for standard testing
+    testImplementation("io.projectreactor:reactor-test") // Specific for WebFlux
+
+//    testImplementation("org.springframework.boot:spring-boot-starter-webflux-test")
+//    testImplementation("org.mockito:mockito-junit-jupiter")
+//    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
 tasks.withType<Test> {
     useJUnitPlatform()
+//    testLogging {
+//        events("passed", "skipped", "failed")
+//    }
 }

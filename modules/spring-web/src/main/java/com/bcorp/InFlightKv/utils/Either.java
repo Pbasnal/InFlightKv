@@ -1,4 +1,4 @@
-package InFlightKv.utils;
+package com.bcorp.InFlightKv.utils;
 
 import lombok.Getter;
 

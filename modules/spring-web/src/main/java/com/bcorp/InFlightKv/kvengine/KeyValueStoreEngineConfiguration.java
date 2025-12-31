@@ -1,7 +1,7 @@
-package InFlightKv.kvengine;
+package com.bcorp.InFlightKv.kvengine;
 
-import InFlightKv.handlers.JsonStringGetValueHandler;
-import InFlightKv.handlers.JsonStringSetValueHandler;
+import com.bcorp.InFlightKv.handlers.JsonStringGetValueHandler;
+import com.bcorp.InFlightKv.handlers.JsonStringSetValueHandler;
 //import InFlightKv.handlers.JsonStringPutValueHandler;
 import com.bcorp.api.*;
 import com.bcorp.api.handlers.HandlerResolver;

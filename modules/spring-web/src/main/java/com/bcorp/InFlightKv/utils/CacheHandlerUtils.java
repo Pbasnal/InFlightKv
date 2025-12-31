@@ -1,8 +1,8 @@
-package InFlightKv.utils;
+package com.bcorp.InFlightKv.utils;
 
-import InFlightKv.pojos.CacheError;
-import InFlightKv.pojos.CacheErrorCode;
-import InFlightKv.pojos.CacheResponse;
+import com.bcorp.InFlightKv.pojos.CacheError;
+import com.bcorp.InFlightKv.pojos.CacheErrorCode;
+import com.bcorp.InFlightKv.pojos.CacheResponse;
 import com.bcorp.codec.JsonCodec;
 import com.bcorp.exceptions.JsonDecodingFailed;
 import com.bcorp.pojos.DataValue;

@@ -1,4 +1,4 @@
-package InFlightKv.pojos;
+package com.bcorp.InFlightKv.pojos;
 
 public enum CacheErrorCode {
     NOT_FOUND,
