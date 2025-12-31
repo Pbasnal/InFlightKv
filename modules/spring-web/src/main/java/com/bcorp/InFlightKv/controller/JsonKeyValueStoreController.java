@@ -52,6 +52,16 @@ public class JsonKeyValueStoreController {
                 .flatMap(Mono::fromFuture);
     }
 
+    @DeleteMapping("/{key}")
+    public Mono<ResponseEntity<CacheResponse<String>>> delete(@PathVariable String key) {
+        return Mono.fromCallable(() ->
+                        kvEngine.<String, CacheResponse<String>>removeCache(key, CacheRequestMethod.remove())
+                                .thenApply(this::convertToControllerResponse)
+                )
+                .flatMap(Mono::fromFuture);
+    }
+
+
     private ResponseEntity<CacheResponse<String>> convertToControllerResponse(CacheResponse<String> response) {
         if (response.data() != null) {
             return ResponseEntity.ok(response);
