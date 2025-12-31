@@ -14,5 +14,19 @@ public record DataValue(
                 System.currentTimeMillis(),
                 null);
     }
+
+    public static DataValue createNewFrom(DataValue value) {
+        return new DataValue(value.data(),
+                value.dataType(),
+                System.currentTimeMillis(),
+                0L);
+    }
+
+    public static DataValue createUpdatedFrom(DataValue value) {
+        return new DataValue(value.data(),
+                value.dataType(),
+                System.currentTimeMillis(),
+                value.version() + 1);
+    }
 }
 
