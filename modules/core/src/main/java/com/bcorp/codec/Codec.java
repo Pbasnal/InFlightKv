@@ -1,10 +1,11 @@
 package com.bcorp.codec;
 
-import com.bcorp.pojos.DataValue;
+import com.bcorp.pojos.CachedDataValue;
+import com.bcorp.pojos.RequestDataValue;
 
 public interface Codec<T> {
-    DataValue encode(T data);
+    RequestDataValue encode(T data);
 
-    T decode(DataValue dataValue);
+    T decode(CachedDataValue requestDataValue);
 }
 

@@ -9,6 +9,8 @@ import com.bcorp.api.handlers.KeyOnlyRequestHandler;
 import com.bcorp.api.handlers.KeyValueRequestHandler;
 import com.bcorp.codec.JsonCodec;
 import com.bcorp.kvstore.KeyValueStore;
+import com.bcorp.kvstore.KvStoreClock;
+import com.bcorp.kvstore.SystemClock;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,19 +23,19 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Integration tests for KeyValueStoreEngineConfiguration.
- *
+ * <p>
  * Tests that Spring beans are properly configured and wired together
  * in the Spring Boot WebFlux application context.
  */
 @SpringBootTest(
-    classes = KeyValueStoreEngineConfiguration.class,
-    webEnvironment = SpringBootTest.WebEnvironment.NONE
+        classes = KeyValueStoreEngineConfiguration.class,
+        webEnvironment = SpringBootTest.WebEnvironment.NONE
 )
 @TestPropertySource(properties = {
-    "spring.main.web-application-type=reactive"
+        "spring.main.web-application-type=reactive"
 })
 @TestPropertySource(properties = {
-    "spring.main.web-application-type=reactive"
+        "spring.main.web-application-type=reactive"
 })
 @DisplayName("KeyValueStoreEngineConfiguration Integration Tests")
 public class KeyValueStoreEngineConfigurationTest {
@@ -49,6 +51,8 @@ public class KeyValueStoreEngineConfigurationTest {
 
     @Autowired
     private KeyValueStoreEngine keyValueStoreEngine;
+
+    private final KvStoreClock clock = new SystemClock();
 
     @Test
     @DisplayName("Should create KeyValueStore bean")
@@ -89,12 +93,12 @@ public class KeyValueStoreEngineConfigurationTest {
     void shouldConfigureHandlerResolverWithGetHandler() {
         // When
         KeyOnlyRequestHandler<String, CacheResponse<String>> getHandler =
-            handlerResolver.resolveHandler(CacheRequestMethod.get(), "test-key");
+                handlerResolver.resolveHandler(CacheRequestMethod.get(), "test-key");
 
         // Then
         assertNotNull(getHandler, "GET handler should be registered and resolvable");
         assertTrue(getHandler instanceof JsonStringGetValueHandler,
-            "GET handler should be JsonStringGetValueHandler");
+                "GET handler should be JsonStringGetValueHandler");
 
         // Verify the handler has the expected JsonCodec
         JsonStringGetValueHandler jsonHandler = (JsonStringGetValueHandler) getHandler;
@@ -106,12 +110,12 @@ public class KeyValueStoreEngineConfigurationTest {
     void shouldConfigureHandlerResolverWithSetHandler() {
         // When
         KeyValueRequestHandler<String, String, CacheResponse<String>> setHandler =
-            handlerResolver.resolveHandler(CacheRequestMethod.set(), "test-key", "test-value");
+                handlerResolver.resolveHandler(CacheRequestMethod.set(), "test-key", "test-value");
 
         // Then
         assertNotNull(setHandler, "SET handler should be registered and resolvable");
         assertTrue(setHandler instanceof JsonStringSetValueHandler,
-            "SET handler should be JsonStringSetValueHandler");
+                "SET handler should be JsonStringSetValueHandler");
 
         // Verify the handler has the expected configuration (patching disabled)
         JsonStringSetValueHandler jsonHandler = (JsonStringSetValueHandler) setHandler;
@@ -123,12 +127,12 @@ public class KeyValueStoreEngineConfigurationTest {
     void shouldConfigureHandlerResolverWithPatchHandler() {
         // When
         KeyValueRequestHandler<String, String, CacheResponse<String>> patchHandler =
-            handlerResolver.resolveHandler(CustomCacheRequestMethod.patch(), "test-key", "test-value");
+                handlerResolver.resolveHandler(CustomCacheRequestMethod.patch(), "test-key", "test-value");
 
         // Then
         assertNotNull(patchHandler, "PATCH handler should be registered and resolvable");
         assertTrue(patchHandler instanceof JsonStringSetValueHandler,
-            "PATCH handler should be JsonStringSetValueHandler");
+                "PATCH handler should be JsonStringSetValueHandler");
 
         // Verify the handler has the expected configuration (patching enabled)
         JsonStringSetValueHandler jsonHandler = (JsonStringSetValueHandler) patchHandler;
@@ -156,17 +160,17 @@ public class KeyValueStoreEngineConfigurationTest {
     void shouldEnsureAllHandlersUseJsonCodecInstances() {
         // Test that GET handler uses JsonCodec
         KeyOnlyRequestHandler<String, CacheResponse<String>> getHandler =
-            handlerResolver.resolveHandler(CacheRequestMethod.get(), "test");
+                handlerResolver.resolveHandler(CacheRequestMethod.get(), "test");
         assertTrue(getHandler instanceof JsonStringGetValueHandler);
 
         // Test that SET handler uses JsonCodec
         KeyValueRequestHandler<String, String, CacheResponse<String>> setHandler =
-            handlerResolver.resolveHandler(CacheRequestMethod.set(), "test", "value");
+                handlerResolver.resolveHandler(CacheRequestMethod.set(), "test", "value");
         assertTrue(setHandler instanceof JsonStringSetValueHandler);
 
         // Test that PATCH handler uses JsonCodec
         KeyValueRequestHandler<String, String, CacheResponse<String>> patchHandler =
-            handlerResolver.resolveHandler(CustomCacheRequestMethod.patch(), "test", "value");
+                handlerResolver.resolveHandler(CustomCacheRequestMethod.patch(), "test", "value");
         assertTrue(patchHandler instanceof JsonStringSetValueHandler);
     }
 
@@ -196,17 +200,17 @@ public class KeyValueStoreEngineConfigurationTest {
 
         // GET handler
         KeyOnlyRequestHandler<String, CacheResponse<String>> getHandler =
-            handlerResolver.resolveHandler(CacheRequestMethod.get(), "string-key");
+                handlerResolver.resolveHandler(CacheRequestMethod.get(), "string-key");
         assertNotNull(getHandler);
 
         // SET handler
         KeyValueRequestHandler<String, String, CacheResponse<String>> setHandler =
-            handlerResolver.resolveHandler(CacheRequestMethod.set(), "string-key", "string-value");
+                handlerResolver.resolveHandler(CacheRequestMethod.set(), "string-key", "string-value");
         assertNotNull(setHandler);
 
         // PATCH handler
         KeyValueRequestHandler<String, String, CacheResponse<String>> patchHandler =
-            handlerResolver.resolveHandler(CustomCacheRequestMethod.patch(), "string-key", "string-value");
+                handlerResolver.resolveHandler(CustomCacheRequestMethod.patch(), "string-key", "string-value");
         assertNotNull(patchHandler);
     }
 
@@ -216,11 +220,11 @@ public class KeyValueStoreEngineConfigurationTest {
         // Test that beans can be retrieved by their expected names
 
         assertTrue(applicationContext.containsBean("keyValueStore"),
-            "Should contain bean named 'keyValueStore'");
+                "Should contain bean named 'keyValueStore'");
         assertTrue(applicationContext.containsBean("handlerResolver"),
-            "Should contain bean named 'handlerResolver'");
+                "Should contain bean named 'handlerResolver'");
         assertTrue(applicationContext.containsBean("keyValueStoreEngine"),
-            "Should contain bean named 'keyValueStoreEngine'");
+                "Should contain bean named 'keyValueStoreEngine'");
 
         // Verify bean types
         assertEquals(KeyValueStore.class, applicationContext.getType("keyValueStore"));
@@ -236,7 +240,7 @@ public class KeyValueStoreEngineConfigurationTest {
         // This is more of a smoke test - if the handlers were created successfully,
         // it means JsonCodec instances were created successfully too
         KeyOnlyRequestHandler<String, CacheResponse<String>> getHandler =
-            handlerResolver.resolveHandler(CacheRequestMethod.get(), "test");
+                handlerResolver.resolveHandler(CacheRequestMethod.get(), "test");
 
         // If we get here without exceptions, JsonCodec was created successfully
         assertNotNull(getHandler, "Handler creation should succeed, implying JsonCodec creation succeeded");
@@ -337,7 +341,7 @@ public class KeyValueStoreEngineConfigurationTest {
         @DisplayName("Should create KeyValueStore instance")
         void shouldCreateKeyValueStoreInstance() {
             // When
-            KeyValueStore kvStore = new KeyValueStore();
+            KeyValueStore kvStore = new KeyValueStore(clock);
 
             // Then
             assertNotNull(kvStore, "KeyValueStore should be instantiable");
@@ -375,7 +379,7 @@ public class KeyValueStoreEngineConfigurationTest {
         @DisplayName("Should create KeyValueStoreEngine with dependencies")
         void shouldCreateKeyValueStoreEngineWithDependencies() {
             // Given
-            KeyValueStore kvStore = new KeyValueStore();
+            KeyValueStore kvStore = new KeyValueStore(clock);
             HandlerResolver resolver = new HandlerResolver();
 
             // When

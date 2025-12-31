@@ -6,7 +6,7 @@ import com.bcorp.api.filters.VersionFilter;
 import com.bcorp.codec.Codec;
 import com.bcorp.kvstore.KeyValueStore;
 import com.bcorp.pojos.DataKey;
-import com.bcorp.pojos.DataValue;
+import com.bcorp.pojos.RequestDataValue;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.util.List;
@@ -48,9 +48,9 @@ public class StringKeyJsonValueSetHandlerHandler implements KeyValueRequestHandl
 
             ObjectNode existingNode = jsonCodec.decode(existingData);
             ObjectNode merged = shallowMerge(existingNode, value);
-            DataValue mergedDataValue = jsonCodec.encode(merged);
+            RequestDataValue mergedRequestDataValue = jsonCodec.encode(merged);
 
-            return keyValueStore.set(dataKey, mergedDataValue, existingData.version());
+            return keyValueStore.set(dataKey, mergedRequestDataValue, existingData.version());
         }).thenApply(v -> {
             if (v == null) {
                 return ResponseHolder.failure(404);

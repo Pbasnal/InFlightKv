@@ -1,10 +1,12 @@
 package com.bcorp.kvstore;
 
+import com.bcorp.pojos.CachedDataValue;
 import com.bcorp.pojos.DataKey;
-import com.bcorp.pojos.DataValue;
+import com.bcorp.pojos.RequestDataValue;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.plugins.DoNotMockEnforcer;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -30,11 +32,12 @@ public class KeyValuePartitioningTests {
 
     private KeyValueStore store;
     private ExecutorService executorService;
-    private static final int EXPECTED_PARTITIONS = 32;
+
+    private final KvStoreClock clock = new SystemClock();
 
     @BeforeEach
     void setUp() {
-        store = new KeyValueStore();
+        store = new KeyValueStore(clock);
         executorService = Executors.newFixedThreadPool(50);
     }
 
@@ -72,7 +75,7 @@ public class KeyValuePartitioningTests {
         CompletableFuture<?>[] writeFutures = runInFutures(totalKeys, 0, (keyId, numOps) -> {
             try {
                 DataKey key = DataKey.fromString("key-" + keyId);
-                DataValue value = DataValue.fromString("v" + keyId);
+                RequestDataValue value = RequestDataValue.fromString("v" + keyId);
                 store.set(key, value, null).get(5, TimeUnit.SECONDS);
             } catch (Exception e) {
                 writeErrors.put("key-" + keyId, e);
@@ -98,7 +101,7 @@ public class KeyValuePartitioningTests {
         CompletableFuture<?>[] readFutures = runInFutures(totalKeys, 0, (keyId, numOps) -> {
             try {
                 DataKey key = DataKey.fromString("key-" + keyId);
-                DataValue retrieved = store.get(key).get(5, TimeUnit.SECONDS);
+                CachedDataValue retrieved = store.get(key).get(5, TimeUnit.SECONDS);
                 assertNotNull(retrieved, "Value should exist for key-" + keyId);
                 String expectedValue = "v" + keyId;
                 String actualValue = new String(retrieved.data(), StandardCharsets.UTF_8);
@@ -138,7 +141,7 @@ public class KeyValuePartitioningTests {
         CompletableFuture<?>[] setFutures = runInFutures(totalKeys, 0, (keyId, numOps) -> {
             try {
                 DataKey key = DataKey.fromString("key-" + keyId);
-                DataValue value = DataValue.fromString("v" + keyId);
+                RequestDataValue value = RequestDataValue.fromString("v" + keyId);
                 store.set(key, value, null).get(5, TimeUnit.SECONDS);
             } catch (Exception e) {
                 setErrors.put("key-" + keyId, e);
@@ -163,7 +166,7 @@ public class KeyValuePartitioningTests {
         CompletableFuture<?>[] removeFutures = runInFutures(totalKeys, 0, (keyId, numOps) -> {
             try {
                 DataKey key = DataKey.fromString("key-" + keyId);
-                DataValue removed = store.remove(key).get(5, TimeUnit.SECONDS);
+                CachedDataValue removed = store.remove(key).get(5, TimeUnit.SECONDS);
                 assertNotNull(removed, "Removed value should not be null for key-" + keyId);
                 String expectedValue = "v" + keyId;
                 String actualValue = new String(removed.data(), StandardCharsets.UTF_8);
@@ -207,7 +210,7 @@ public class KeyValuePartitioningTests {
             try {
                 // Use varied key patterns to ensure distribution
                 DataKey key = DataKey.fromString("distributed-key-" + keyId + "-" + (keyId * 7));
-                DataValue value = DataValue.fromString("distributed-value-" + keyId);
+                RequestDataValue value = RequestDataValue.fromString("distributed-value-" + keyId);
                 store.set(key, value, null).get(5, TimeUnit.SECONDS);
             } catch (Exception e) {
                 errors.put("key-" + keyId, e);
@@ -231,7 +234,7 @@ public class KeyValuePartitioningTests {
         int verifiedCount = 0;
         for (int i = 0; i < totalKeys; i += 100) { // Sample every 100th key
             DataKey key = DataKey.fromString("distributed-key-" + i + "-" + (i * 7));
-            DataValue value = store.get(key).join();
+            CachedDataValue value = store.get(key).join();
             assertNotNull(value, "Key should exist: " + key.key());
             verifiedCount++;
         }
@@ -256,7 +259,7 @@ public class KeyValuePartitioningTests {
             try {
                 for (int j = 0; j < keysPerThread; j++) {
                     DataKey key = DataKey.fromString("isolated-thread-" + tId + "-key-" + j);
-                    DataValue value = DataValue.fromString("isolated-value-" + tId + "-" + j);
+                    RequestDataValue value = RequestDataValue.fromString("isolated-value-" + tId + "-" + j);
                     store.set(key, value, null).get(2, TimeUnit.SECONDS);
                 }
             } catch (Exception e) {
@@ -279,7 +282,7 @@ public class KeyValuePartitioningTests {
         for (int threadId = 0; threadId < Math.min(10, numThreads); threadId++) {
             for (int j = 0; j < Math.min(10, keysPerThread); j++) {
                 DataKey key = DataKey.fromString("isolated-thread-" + threadId + "-key-" + j);
-                DataValue value = store.get(key).join();
+                CachedDataValue value = store.get(key).join();
                 assertNotNull(value, "Key should exist: " + key.key());
                 String expected = "isolated-value-" + threadId + "-" + j;
                 String actual = new String(value.data(), StandardCharsets.UTF_8);
@@ -306,7 +309,7 @@ public class KeyValuePartitioningTests {
         for (String keyStr : similarKeys) {
             String valueStr = "value-" + keyStr;
             DataKey key = DataKey.fromString(keyStr);
-            DataValue value = DataValue.fromString(valueStr);
+            RequestDataValue value = RequestDataValue.fromString(valueStr);
             store.set(key, value, null).join();
             expectedValues.put(keyStr, valueStr);
         }
@@ -318,7 +321,7 @@ public class KeyValuePartitioningTests {
         for (int i = 0; i < 10; i++) {
             for (String keyStr : similarKeys) {
                 DataKey key = DataKey.fromString(keyStr);
-                DataValue value = store.get(key).join();
+                CachedDataValue value = store.get(key).join();
                 assertNotNull(value, "Key should exist: " + keyStr);
                 String expected = expectedValues.get(keyStr);
                 String actual = new String(value.data(), StandardCharsets.UTF_8);
@@ -344,7 +347,7 @@ public class KeyValuePartitioningTests {
 
         // Test set operation routes correctly
         for (DataKey key : testKeys) {
-            DataValue value = DataValue.fromString("initial-" + key.key());
+            RequestDataValue value = RequestDataValue.fromString("initial-" + key.key());
             store.set(key, value, null).join();
         }
         assertEquals(numKeys, store.totalKeys(),
@@ -358,7 +361,7 @@ public class KeyValuePartitioningTests {
 
         // Test get routes to same partition
         for (DataKey key : testKeys) {
-            DataValue value = store.get(key).join();
+            CachedDataValue value = store.get(key).join();
             assertNotNull(value, "Value should exist for: " + key.key());
             assertTrue(new String(value.data(), StandardCharsets.UTF_8).startsWith("initial-"),
                     "Value should match for: " + key.key());
@@ -366,7 +369,7 @@ public class KeyValuePartitioningTests {
 
         // Test remove routes to same partition
         for (DataKey key : testKeys) {
-            DataValue removed = store.remove(key).join();
+            CachedDataValue removed = store.remove(key).join();
             assertNotNull(removed, "Removed value should exist for: " + key.key());
         }
         assertEquals(0, store.totalKeys(),

@@ -1,8 +1,9 @@
 package com.bcorp.kvstore;
 
 import com.bcorp.exceptions.ConcurrentUpdateException;
+import com.bcorp.pojos.CachedDataValue;
 import com.bcorp.pojos.DataKey;
-import com.bcorp.pojos.DataValue;
+import com.bcorp.pojos.RequestDataValue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -16,10 +17,11 @@ import static org.junit.jupiter.api.Assertions.*;
 class KeyValueStoreTest {
 
     private KeyValueStore keyValueStore;
+    private final KvStoreClock clock = new SystemClock();
 
     @BeforeEach
     void setUp() {
-        keyValueStore = new KeyValueStore();
+        keyValueStore = new KeyValueStore(clock);
     }
 
     @Test
@@ -29,14 +31,14 @@ class KeyValueStoreTest {
         // and that the total keys are properly aggregated
 
         DataKey key = DataKey.fromString("test-key");
-        DataValue value = DataValue.fromString("test-value");
+        RequestDataValue value = RequestDataValue.fromString("test-value");
 
         // Set a value
         keyValueStore.set(key, value, null);
 
         // Verify it exists and can be retrieved
         assertTrue(waitFuture(keyValueStore.containsKey(key)));
-        DataValue retrieved = waitFuture(keyValueStore.get(key));
+        CachedDataValue retrieved = waitFuture(keyValueStore.get(key));
         assertNotNull(retrieved);
         assertEquals("test-value", new String(retrieved.data(), StandardCharsets.UTF_8));
 
@@ -48,13 +50,13 @@ class KeyValueStoreTest {
     void shouldStoreAndRetrieveValues() {
         // Given
         DataKey key = DataKey.fromString("test-key");
-        DataValue value = DataValue.fromString("test-value");
+        RequestDataValue value = RequestDataValue.fromString("test-value");
 
         // When - Set value
         waitFuture(keyValueStore.set(key, value, null));
 
         // Then - Get value
-        DataValue retrieved = waitFuture(keyValueStore.get(key));
+        CachedDataValue retrieved = waitFuture(keyValueStore.get(key));
         assertNotNull(retrieved);
         assertEquals("test-value", new String(retrieved.data(), StandardCharsets.UTF_8));
         assertEquals(0L, retrieved.version()); // Initial version
@@ -63,7 +65,7 @@ class KeyValueStoreTest {
     @Test
     void shouldReturnNullForNonExistentKey() {
         // When
-        DataValue result = waitFuture(keyValueStore.get(DataKey.fromString("non-existent")));
+        CachedDataValue result = waitFuture(keyValueStore.get(DataKey.fromString("non-existent")));
 
         // Then
         assertNull(result);
@@ -77,7 +79,7 @@ class KeyValueStoreTest {
         assertFalse(waitFuture(keyValueStore.containsKey(key)));
 
         // After setting, should exist
-        waitFuture(keyValueStore.set(key, DataValue.fromString("value"), null));
+        waitFuture(keyValueStore.set(key, RequestDataValue.fromString("value"), null));
         assertTrue(waitFuture(keyValueStore.containsKey(key)));
 
         // After removing, should not exist
@@ -89,13 +91,13 @@ class KeyValueStoreTest {
     void shouldRemoveExistingKey() {
         // Given
         DataKey key = DataKey.fromString("removal-test");
-        DataValue value = DataValue.fromString("to-be-removed");
+        RequestDataValue value = RequestDataValue.fromString("to-be-removed");
 
         waitFuture(keyValueStore.set(key, value, null));
         assertEquals(1, keyValueStore.totalKeys());
 
         // When - Remove
-        DataValue removedValue = waitFuture(keyValueStore.remove(key));
+        CachedDataValue removedValue = waitFuture(keyValueStore.remove(key));
 
         // Then
         assertNotNull(removedValue);
@@ -107,7 +109,7 @@ class KeyValueStoreTest {
     @Test
     void shouldReturnNullWhenRemovingNonExistentKey() {
         // When
-        DataValue result = waitFuture(keyValueStore.remove(DataKey.fromString("non-existent")));
+        CachedDataValue result = waitFuture(keyValueStore.remove(DataKey.fromString("non-existent")));
 
         // Then
         assertNull(result);
@@ -118,16 +120,16 @@ class KeyValueStoreTest {
     void shouldHandleVersionBasedUpdates() {
         // Given
         DataKey key = DataKey.fromString("version-test");
-        DataValue initialValue = DataValue.fromString("initial");
+        RequestDataValue initialValue = RequestDataValue.fromString("initial");
 
         waitFuture(keyValueStore.set(key, initialValue, null));
 
         // When - Update with correct version
-        DataValue updatedValue = DataValue.fromString("updated");
+        RequestDataValue updatedValue = RequestDataValue.fromString("updated");
         waitFuture(keyValueStore.set(key, updatedValue, 0L));
 
         // Then
-        DataValue result = waitFuture(keyValueStore.get(key));
+        CachedDataValue result = waitFuture(keyValueStore.get(key));
         assertNotNull(result);
         assertEquals("updated", new String(result.data(), StandardCharsets.UTF_8));
         assertEquals(1L, result.version());
@@ -137,11 +139,11 @@ class KeyValueStoreTest {
     void shouldThrowConcurrentUpdateExceptionForVersionConflict() {
         // Given
         DataKey key = DataKey.fromString("conflict-test");
-        keyValueStore.set(key, DataValue.fromString("initial"), null);
+        keyValueStore.set(key, RequestDataValue.fromString("initial"), null);
 
         // When - Try to update with wrong version
         ExecutionException exception = assertThrows(ExecutionException.class, () ->
-                keyValueStore.set(key, DataValue.fromString("conflicting"), 999L).get(1, TimeUnit.SECONDS)
+                keyValueStore.set(key, RequestDataValue.fromString("conflicting"), 999L).get(1, TimeUnit.SECONDS)
         );
 
         // Then
@@ -157,7 +159,7 @@ class KeyValueStoreTest {
         int numKeys = 100;
         for (int i = 0; i < numKeys; i++) {
             DataKey key = DataKey.fromString("partition-test-" + i);
-            DataValue value = DataValue.fromString("value-" + i);
+            RequestDataValue value = RequestDataValue.fromString("value-" + i);
             waitFuture(keyValueStore.set(key, value, null));
         }
 
@@ -168,7 +170,7 @@ class KeyValueStoreTest {
             DataKey key = DataKey.fromString("partition-test-" + i);
             assertTrue(waitFuture(keyValueStore.containsKey(key)));
 
-            DataValue value = waitFuture(keyValueStore.get(key));
+            CachedDataValue value = waitFuture(keyValueStore.get(key));
             assertNotNull(value);
             assertEquals("value-" + i, new String(value.data(), StandardCharsets.UTF_8));
         }
@@ -185,7 +187,7 @@ class KeyValueStoreTest {
         for (int batch = 0; batch < 5; batch++) {
             for (int i = 0; i < 10; i++) {
                 DataKey key = DataKey.fromString("batch-" + batch + "-key-" + i);
-                DataValue value = DataValue.fromString("batch-" + batch + "-value-" + i);
+                RequestDataValue value = RequestDataValue.fromString("batch-" + batch + "-value-" + i);
                 waitFuture(keyValueStore.set(key, value, null));
             }
         }
@@ -211,9 +213,9 @@ class KeyValueStoreTest {
         DataKey key3 = DataKey.fromString("concurrent-3");
 
         // Set different values
-        waitFuture(keyValueStore.set(key1, DataValue.fromString("value1"), null));
-        waitFuture(keyValueStore.set(key2, DataValue.fromString("value2"), null));
-        waitFuture(keyValueStore.set(key3, DataValue.fromString("value3"), null));
+        waitFuture(keyValueStore.set(key1, RequestDataValue.fromString("value1"), null));
+        waitFuture(keyValueStore.set(key2, RequestDataValue.fromString("value2"), null));
+        waitFuture(keyValueStore.set(key3, RequestDataValue.fromString("value3"), null));
 
         assertEquals(3, keyValueStore.totalKeys());
 
@@ -241,9 +243,9 @@ class KeyValueStoreTest {
         DataKey key3 = DataKey.fromString("different-key");
 
         // Set values
-        waitFuture(keyValueStore.set(key1, DataValue.fromString("collision-value-1"), null));
-        waitFuture(keyValueStore.set(key2, DataValue.fromString("collision-value-2"), null));
-        waitFuture(keyValueStore.set(key3, DataValue.fromString("different-value"), null));
+        waitFuture(keyValueStore.set(key1, RequestDataValue.fromString("collision-value-1"), null));
+        waitFuture(keyValueStore.set(key2, RequestDataValue.fromString("collision-value-2"), null));
+        waitFuture(keyValueStore.set(key3, RequestDataValue.fromString("different-value"), null));
 
         // All should exist and be retrievable
         assertEquals(3, keyValueStore.totalKeys());
@@ -256,11 +258,11 @@ class KeyValueStoreTest {
     void shouldHandleEmptyStringValues() {
         // Test with empty string values
         DataKey key = DataKey.fromString("empty-test");
-        DataValue emptyValue = DataValue.fromString("");
+        RequestDataValue emptyValue = RequestDataValue.fromString("");
 
         waitFuture(keyValueStore.set(key, emptyValue, null));
 
-        DataValue retrieved = waitFuture(keyValueStore.get(key));
+        CachedDataValue retrieved = waitFuture(keyValueStore.get(key));
         assertNotNull(retrieved);
         assertEquals("", new String(retrieved.data(), StandardCharsets.UTF_8));
         assertEquals(0, retrieved.data().length);
@@ -270,11 +272,11 @@ class KeyValueStoreTest {
     void shouldHandleSpecialCharactersInKeysAndValues() {
         // Test with special characters
         DataKey specialKey = DataKey.fromString("special-key!@#$%^&*()");
-        DataValue specialValue = DataValue.fromString("special-value!@#$%^&*()");
+        RequestDataValue specialValue = RequestDataValue.fromString("special-value!@#$%^&*()");
 
         waitFuture(keyValueStore.set(specialKey, specialValue, null));
 
-        DataValue retrieved = waitFuture(keyValueStore.get(specialKey));
+        CachedDataValue retrieved = waitFuture(keyValueStore.get(specialKey));
         assertNotNull(retrieved);
         assertEquals("special-value!@#$%^&*()", new String(retrieved.data(), StandardCharsets.UTF_8));
     }
@@ -287,7 +289,7 @@ class KeyValueStoreTest {
         // Add keys
         for (int i = 0; i < numKeys; i++) {
             DataKey key = DataKey.fromString("large-test-key-" + i);
-            DataValue value = DataValue.fromString("large-test-value-" + i);
+            RequestDataValue value = RequestDataValue.fromString("large-test-value-" + i);
             waitFuture(keyValueStore.set(key, value, null));
         }
 
@@ -297,7 +299,7 @@ class KeyValueStoreTest {
         for (int i = 0; i < 10; i++) {
             int randomIndex = (int) (Math.random() * numKeys);
             DataKey key = DataKey.fromString("large-test-key-" + randomIndex);
-            DataValue value = waitFuture(keyValueStore.get(key));
+            CachedDataValue value = waitFuture(keyValueStore.get(key));
             assertNotNull(value);
             assertEquals("large-test-value-" + randomIndex, new String(value.data(), StandardCharsets.UTF_8));
         }
@@ -318,17 +320,17 @@ class KeyValueStoreTest {
         DataKey[] keys = new DataKey[10];
         for (int i = 0; i < 10; i++) {
             keys[i] = DataKey.fromString("version-consistency-" + i);
-            waitFuture(keyValueStore.set(keys[i], DataValue.fromString("initial-" + i), null));
+            waitFuture(keyValueStore.set(keys[i], RequestDataValue.fromString("initial-" + i), null));
         }
 
         // Update each key multiple times and verify versions
         for (int update = 0; update < 3; update++) {
             for (int i = 0; i < 10; i++) {
-                DataValue current = waitFuture(keyValueStore.get(keys[i]));
-                DataValue newValue = DataValue.fromString("update-" + update + "-" + i);
+                CachedDataValue current = waitFuture(keyValueStore.get(keys[i]));
+                RequestDataValue newValue = RequestDataValue.fromString("update-" + update + "-" + i);
                 waitFuture(keyValueStore.set(keys[i], newValue, current.version()));
 
-                DataValue afterUpdate = waitFuture(keyValueStore.get(keys[i]));
+                CachedDataValue afterUpdate = waitFuture(keyValueStore.get(keys[i]));
                 assertEquals(update + 1L, afterUpdate.version());
                 assertEquals("update-" + update + "-" + i, new String(afterUpdate.data(), StandardCharsets.UTF_8));
             }
@@ -336,7 +338,7 @@ class KeyValueStoreTest {
 
         // Final version should be 3 for all keys
         for (int i = 0; i < 10; i++) {
-            DataValue finalValue = waitFuture(keyValueStore.get(keys[i]));
+            CachedDataValue finalValue = waitFuture(keyValueStore.get(keys[i]));
             assertEquals(3L, finalValue.version());
         }
     }

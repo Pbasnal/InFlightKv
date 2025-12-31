@@ -1,7 +1,8 @@
 package com.bcorp.kvstore;
 
 import com.bcorp.exceptions.ConcurrentUpdateException;
-import com.bcorp.pojos.DataValue;
+import com.bcorp.pojos.CachedDataValue;
+import com.bcorp.pojos.RequestDataValue;
 import com.bcorp.pojos.DataKey;
 
 import java.util.Arrays;
@@ -14,29 +15,30 @@ import java.util.concurrent.atomic.AtomicLong;
 public class KeyValuePartition {
     protected int partitionId;
     protected ExecutorService eventLoop;
-    private final Map<DataKey, DataValue> keyValueStore;
-
+    private final Map<DataKey, CachedDataValue> keyValueStore;
+    private final KvStoreClock clock;
     private final AtomicLong totalKeys;
 
-    public KeyValuePartition(int _partitionId) {
+    public KeyValuePartition(int _partitionId, KvStoreClock _clock) {
+        this.clock = _clock;
         this.partitionId = _partitionId;
         this.eventLoop = Executors.newSingleThreadExecutor();
         this.keyValueStore = new HashMap<>();
         this.totalKeys = new AtomicLong(0);
     }
 
-    public CompletableFuture<DataValue> get(DataKey key) {
-        CompletableFuture<DataValue> resultFuture = new CompletableFuture<>();
+    public CompletableFuture<CachedDataValue> get(DataKey key) {
+        CompletableFuture<CachedDataValue> resultFuture = new CompletableFuture<>();
         eventLoop.execute(() -> {
-            DataValue value = keyValueStore.get(key);
+            CachedDataValue value = keyValueStore.get(key);
 
             if (value == null) {
                 resultFuture.complete(null);
             } else {
                 // to update the last access time
-                DataValue updatedValue = new DataValue(value.data(),
+                CachedDataValue updatedValue = new CachedDataValue(value.data(),
                         value.dataType(),
-                        System.currentTimeMillis(),
+                        clock.currentTimeMs(),
                         value.version());
 
                 keyValueStore.put(key, updatedValue);
@@ -46,26 +48,30 @@ public class KeyValuePartition {
         return resultFuture;
     }
 
-    public CompletableFuture<DataValue> set(DataKey key,
-                                            DataValue value,
-                                            Long expectedOldVersion) {
-        CompletableFuture<DataValue> resultFuture = new CompletableFuture<>();
+    public CompletableFuture<CachedDataValue> set(DataKey key,
+                                                  RequestDataValue value,
+                                                  Long expectedOldVersion) {
+        CompletableFuture<CachedDataValue> resultFuture = new CompletableFuture<>();
 
         eventLoop.execute(() -> {
-            DataValue existingValue = keyValueStore.get(key);
-            OperationType operationType = Optional.of(existingValue)
+            CachedDataValue existingValue = keyValueStore.get(key);
+            OperationType operationType = Optional.ofNullable(existingValue)
                     .map(dataValue -> operationType(expectedOldVersion, value, dataValue))
                     .orElse(OperationType.INSERT);
 
             switch (operationType) {
                 case INSERT -> {
-                    DataValue updatedValue = DataValue.createNewFrom(value);
+                    CachedDataValue updatedValue = CachedDataValue.createNewFrom(value, clock.currentTimeMs());
                     keyValueStore.put(key, updatedValue); // returns null if the value doesn't exist
                     totalKeys.incrementAndGet();
                     resultFuture.complete(updatedValue);
                 }
                 case UPDATE -> {
-                    DataValue updatedValue = DataValue.createUpdatedFrom(value);
+                    CachedDataValue updatedValue = CachedDataValue.createUpdatedFrom(
+                            value,
+                            clock.currentTimeMs(),
+                            existingValue.version() + 1);
+
                     keyValueStore.put(key, updatedValue);
                     resultFuture.complete(updatedValue);
                 }
@@ -77,11 +83,11 @@ public class KeyValuePartition {
         return resultFuture;
     }
 
-    public CompletableFuture<DataValue> remove(DataKey key) {
-        CompletableFuture<DataValue> resultFuture = new CompletableFuture<>();
+    public CompletableFuture<CachedDataValue> remove(DataKey key) {
+        CompletableFuture<CachedDataValue> resultFuture = new CompletableFuture<>();
 
         eventLoop.execute(() -> {
-                    DataValue value = keyValueStore.remove(key);
+                    CachedDataValue value = keyValueStore.remove(key);
                     if (value != null) totalKeys.decrementAndGet();
 
                     resultFuture.complete(value);
@@ -103,7 +109,7 @@ public class KeyValuePartition {
         return totalKeys.get();
     }
 
-    private OperationType operationType(Long expectedOldVersion, DataValue newValue, DataValue oldValue) {
+    private OperationType operationType(Long expectedOldVersion, RequestDataValue newValue, CachedDataValue oldValue) {
         if (Arrays.equals(newValue.data(), oldValue.data())) return OperationType.SKIP;
 
         if (expectedOldVersion == null) return OperationType.UPDATE;

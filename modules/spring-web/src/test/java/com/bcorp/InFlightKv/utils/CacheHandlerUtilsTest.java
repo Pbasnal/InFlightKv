@@ -4,7 +4,8 @@ import com.bcorp.InFlightKv.pojos.CacheErrorCode;
 import com.bcorp.InFlightKv.pojos.CacheResponse;
 import com.bcorp.codec.JsonCodec;
 import com.bcorp.exceptions.JsonDecodingFailed;
-import com.bcorp.pojos.DataValue;
+import com.bcorp.pojos.CachedDataValue;
+import com.bcorp.pojos.RequestDataValue;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -23,7 +24,7 @@ import static org.mockito.Mockito.*;
 
 /**
  * Unit tests for CacheHandlerUtils.
- *
+ * <p>
  * Tests all utility methods for JSON parsing, encoding, decoding, and serialization
  * with both success and error scenarios.
  */
@@ -37,7 +38,8 @@ public class CacheHandlerUtilsTest {
     private ObjectMapper objectMapper;
     private JsonNode testJsonNode;
     private String testJsonString;
-    private DataValue testDataValue;
+    private RequestDataValue testRequestDataValue;
+    private CachedDataValue testCachedData;
 
     @BeforeEach
     void setUp() {
@@ -46,7 +48,10 @@ public class CacheHandlerUtilsTest {
         testJsonNode = objectMapper.createObjectNode()
                 .put("key", "value")
                 .put("number", 42);
-        testDataValue = new DataValue(
+
+        testRequestDataValue = RequestDataValue.fromString(testJsonString);
+
+        testCachedData = new CachedDataValue(
                 testJsonString.getBytes(StandardCharsets.UTF_8),
                 ObjectNode.class,
                 System.currentTimeMillis(),
@@ -115,17 +120,17 @@ public class CacheHandlerUtilsTest {
     @DisplayName("Should successfully decode DataValue to JsonNode")
     void shouldDecodeDataValueSuccessfully() {
         // Given
-        when(jsonCodec.decode(testDataValue)).thenReturn(testJsonNode);
+        when(jsonCodec.decode(testCachedData)).thenReturn(testJsonNode);
 
         // When
-        var result = CacheHandlerUtils.decodeDataValue(testDataValue, jsonCodec);
+        var result = CacheHandlerUtils.decodeDataValue(testCachedData, jsonCodec);
 
         // Then
         assertTrue(result.isSuccess(), "Should return success for valid DataValue");
         assertNotNull(result.getSuccessResponse(), "Success response should not be null");
         assertEquals(testJsonNode, result.getSuccessResponse());
         assertNull(result.getErrorResponse(), "Error response should be null");
-        verify(jsonCodec).decode(testDataValue);
+        verify(jsonCodec).decode(testCachedData);
     }
 
     @Test
@@ -133,10 +138,10 @@ public class CacheHandlerUtilsTest {
     void shouldReturnErrorWhenDecodingFails() {
         // Given
         JsonDecodingFailed exception = new JsonDecodingFailed(new IOException("Decoding failed"));
-        when(jsonCodec.decode(testDataValue)).thenThrow(exception);
+        when(jsonCodec.decode(testCachedData)).thenThrow(exception);
 
         // When
-        var result = CacheHandlerUtils.decodeDataValue(testDataValue, jsonCodec);
+        var result = CacheHandlerUtils.decodeDataValue(testCachedData, jsonCodec);
 
         // Then
         assertFalse(result.isSuccess(), "Should return failure when decoding fails");
@@ -144,7 +149,7 @@ public class CacheHandlerUtilsTest {
         assertNotNull(result.getErrorResponse(), "Error response should not be null");
         assertEquals(CacheErrorCode.WRONG_DATA_TYPE, result.getErrorResponse().errorCode());
         assertEquals("Failed to decode data to json", result.getErrorResponse().errorMessage());
-        verify(jsonCodec).decode(testDataValue);
+        verify(jsonCodec).decode(testCachedData);
     }
 
     // ==================== serializeJsonNode Tests ====================
@@ -173,13 +178,10 @@ public class CacheHandlerUtilsTest {
     @DisplayName("Should successfully encode JsonNode to DataValue")
     void shouldEncodeJsonNodeSuccessfully() {
         // Given
-        DataValue expectedDataValue = new DataValue(
+        RequestDataValue expectedRequestDataValue = new RequestDataValue(
                 testJsonString.getBytes(StandardCharsets.UTF_8),
-                ObjectNode.class,
-                System.currentTimeMillis(),
-                -1L
-        );
-        when(jsonCodec.encode(testJsonNode)).thenReturn(expectedDataValue);
+                ObjectNode.class);
+        when(jsonCodec.encode(testJsonNode)).thenReturn(expectedRequestDataValue);
 
         // When
         var result = CacheHandlerUtils.encodeJsonNode(testJsonNode, jsonCodec);
@@ -187,7 +189,7 @@ public class CacheHandlerUtilsTest {
         // Then
         assertTrue(result.isSuccess(), "Should return success for valid JsonNode");
         assertNotNull(result.getSuccessResponse(), "Success response should not be null");
-        assertEquals(expectedDataValue, result.getSuccessResponse());
+        assertEquals(expectedRequestDataValue, result.getSuccessResponse());
         assertNull(result.getErrorResponse(), "Error response should be null");
         verify(jsonCodec).encode(testJsonNode);
     }
@@ -214,18 +216,18 @@ public class CacheHandlerUtilsTest {
     void shouldHandleValidDataValueResponse() {
         // Given
         String serializedJson = "{\"key\":\"value\"}";
-        when(jsonCodec.decode(testDataValue)).thenReturn(testJsonNode);
+        when(jsonCodec.decode(testCachedData)).thenReturn(testJsonNode);
         when(jsonCodec.toString(testJsonNode)).thenReturn(serializedJson);
 
         // When
-        CacheResponse<String> result = CacheHandlerUtils.handleCacheResponse(testDataValue, jsonCodec);
+        CacheResponse<String> result = CacheHandlerUtils.handleCacheResponse(testCachedData, jsonCodec);
 
         // Then
         assertNotNull(result.data(), "Data should not be null");
         assertEquals(serializedJson, result.data());
-        assertEquals(5L, result.version(), "Version should match DataValue version");
+        assertEquals(0L, result.version(), "Version should match DataValue version");
         assertNull(result.error(), "Error should be null");
-        verify(jsonCodec).decode(testDataValue);
+        verify(jsonCodec).decode(testCachedData);
         verify(jsonCodec).toString(testJsonNode);
     }
 }

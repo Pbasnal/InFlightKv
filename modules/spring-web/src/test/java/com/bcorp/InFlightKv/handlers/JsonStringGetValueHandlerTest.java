@@ -7,8 +7,9 @@ import com.bcorp.InFlightKv.pojos.CacheResponse;
 import com.bcorp.api.filters.Filter;
 import com.bcorp.codec.JsonCodec;
 import com.bcorp.kvstore.KeyValueStore;
+import com.bcorp.pojos.CachedDataValue;
 import com.bcorp.pojos.DataKey;
-import com.bcorp.pojos.DataValue;
+import com.bcorp.pojos.RequestDataValue;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,7 +24,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -44,7 +44,7 @@ public class JsonStringGetValueHandlerTest {
     private JsonStringGetValueHandler handler;
     private String testKey = "test-key";
     private DataKey testDataKey;
-    private DataValue testDataValue;
+    private CachedDataValue testCachedDataValue;
     private JsonNode mockJsonNode;
     private String jsonData = "{\"test\":\"data\"}";
     private List<Filter> emptyFilters = Collections.emptyList();
@@ -54,8 +54,7 @@ public class JsonStringGetValueHandlerTest {
         handler = new JsonStringGetValueHandler(jsonCodec);
         testDataKey = new DataKey(testKey);
 
-        // Create test data
-        testDataValue = new DataValue(
+        testCachedDataValue = new CachedDataValue(
                 jsonData.getBytes(StandardCharsets.UTF_8),
                 String.class,
                 System.currentTimeMillis(),
@@ -69,8 +68,8 @@ public class JsonStringGetValueHandlerTest {
     @DisplayName("Should successfully retrieve and return existing key value")
     void shouldSuccessfullyRetrieveExistingKeyValue() throws ExecutionException, InterruptedException {
         // Given
-        when(keyValueStore.get(testDataKey)).thenReturn(CompletableFuture.completedFuture(testDataValue));
-        when(jsonCodec.decode(testDataValue)).thenReturn(mockJsonNode);
+        when(keyValueStore.get(testDataKey)).thenReturn(CompletableFuture.completedFuture(testCachedDataValue));
+        when(jsonCodec.decode(testCachedDataValue)).thenReturn(mockJsonNode);
         when(jsonCodec.toString(mockJsonNode)).thenReturn(jsonData);
 
         // When
@@ -83,7 +82,7 @@ public class JsonStringGetValueHandlerTest {
         assertEquals(5L, response.version());
 
         verify(keyValueStore).get(testDataKey);
-        verify(jsonCodec).decode(testDataValue);
+        verify(jsonCodec).decode(testCachedDataValue);
         verify(jsonCodec).toString(mockJsonNode);
     }
 
@@ -135,8 +134,8 @@ public class JsonStringGetValueHandlerTest {
         // Given - Mock JsonCodec to throw exception during decode
         com.bcorp.exceptions.JsonDecodingFailed decodingException =
                 new com.bcorp.exceptions.JsonDecodingFailed(new IOException("Decoding failed"));
-        when(keyValueStore.get(testDataKey)).thenReturn(CompletableFuture.completedFuture(testDataValue));
-        when(jsonCodec.decode(testDataValue)).thenThrow(decodingException);
+        when(keyValueStore.get(testDataKey)).thenReturn(CompletableFuture.completedFuture(testCachedDataValue));
+        when(jsonCodec.decode(testCachedDataValue)).thenThrow(decodingException);
 
         // When
         CompletableFuture<CacheResponse<String>> result = handler.handle(testKey, emptyFilters, keyValueStore);
@@ -151,7 +150,7 @@ public class JsonStringGetValueHandlerTest {
         assertNull(response.version(), "Version should be null on error");
 
         verify(keyValueStore).get(testDataKey);
-        verify(jsonCodec).decode(testDataValue);
+        verify(jsonCodec).decode(testCachedDataValue);
     }
 
     @Test
@@ -163,8 +162,8 @@ public class JsonStringGetValueHandlerTest {
         com.bcorp.exceptions.JsonDecodingFailed serializationException =
                 new com.bcorp.exceptions.JsonDecodingFailed(new IOException("Serialization failed"));
 
-        when(keyValueStore.get(testDataKey)).thenReturn(CompletableFuture.completedFuture(testDataValue));
-        when(jsonCodec.decode(testDataValue)).thenReturn(mockJsonNode);
+        when(keyValueStore.get(testDataKey)).thenReturn(CompletableFuture.completedFuture(testCachedDataValue));
+        when(jsonCodec.decode(testCachedDataValue)).thenReturn(mockJsonNode);
         when(jsonCodec.toString(mockJsonNode)).thenThrow(serializationException);
 
         // When
@@ -180,7 +179,7 @@ public class JsonStringGetValueHandlerTest {
         assertNull(response.version(), "Version should be null on error");
 
         verify(keyValueStore).get(testDataKey);
-        verify(jsonCodec).decode(testDataValue);
+        verify(jsonCodec).decode(testCachedDataValue);
         verify(jsonCodec).toString(mockJsonNode);
     }
 
@@ -189,8 +188,8 @@ public class JsonStringGetValueHandlerTest {
     void shouldAcceptFiltersParameter() throws ExecutionException, InterruptedException {
         // Given
         List<Filter> filters = Collections.singletonList(mock(Filter.class));
-        when(keyValueStore.get(testDataKey)).thenReturn(CompletableFuture.completedFuture(testDataValue));
-        when(jsonCodec.decode(testDataValue)).thenReturn(mockJsonNode);
+        when(keyValueStore.get(testDataKey)).thenReturn(CompletableFuture.completedFuture(testCachedDataValue));
+        when(jsonCodec.decode(testCachedDataValue)).thenReturn(mockJsonNode);
         when(jsonCodec.toString(mockJsonNode)).thenReturn(jsonData);
 
         // When
@@ -212,8 +211,8 @@ public class JsonStringGetValueHandlerTest {
 
         for (String key : testKeys) {
             DataKey dataKey = new DataKey(key);
-            when(keyValueStore.get(dataKey)).thenReturn(CompletableFuture.completedFuture(testDataValue));
-            when(jsonCodec.decode(testDataValue)).thenReturn(mockJsonNode);
+            when(keyValueStore.get(dataKey)).thenReturn(CompletableFuture.completedFuture(testCachedDataValue));
+            when(jsonCodec.decode(testCachedDataValue)).thenReturn(mockJsonNode);
             when(jsonCodec.toString(mockJsonNode)).thenReturn(jsonData);
 
             // When
@@ -232,7 +231,7 @@ public class JsonStringGetValueHandlerTest {
     @DisplayName("Should return completable future that is not null")
     void shouldReturnCompletableFutureThatIsNotNull() {
         // Given
-        when(keyValueStore.get(testDataKey)).thenReturn(CompletableFuture.completedFuture(testDataValue));
+        when(keyValueStore.get(testDataKey)).thenReturn(CompletableFuture.completedFuture(testCachedDataValue));
 
         // When
         CompletableFuture<CacheResponse<String>> result = handler.handle(testKey, emptyFilters, keyValueStore);
@@ -245,16 +244,16 @@ public class JsonStringGetValueHandlerTest {
     @DisplayName("Should handle asynchronous completion properly")
     void shouldHandleAsynchronousCompletionProperly() throws ExecutionException, InterruptedException {
         // Given - A future that completes asynchronously
-        CompletableFuture<DataValue> asyncFuture = new CompletableFuture<>();
+        CompletableFuture<CachedDataValue> asyncFuture = new CompletableFuture<>();
         when(keyValueStore.get(testDataKey)).thenReturn(asyncFuture);
-        when(jsonCodec.decode(testDataValue)).thenReturn(mockJsonNode);
+        when(jsonCodec.decode(testCachedDataValue)).thenReturn(mockJsonNode);
         when(jsonCodec.toString(mockJsonNode)).thenReturn(jsonData);
 
         // When - Start the operation
         CompletableFuture<CacheResponse<String>> result = handler.handle(testKey, emptyFilters, keyValueStore);
 
         // Complete the async operation
-        asyncFuture.complete(testDataValue);
+        asyncFuture.complete(testCachedDataValue);
 
         // Then - Wait for completion
         CacheResponse<String> response = result.get();

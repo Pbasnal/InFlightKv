@@ -5,7 +5,8 @@ import com.bcorp.InFlightKv.pojos.CacheErrorCode;
 import com.bcorp.InFlightKv.pojos.CacheResponse;
 import com.bcorp.codec.JsonCodec;
 import com.bcorp.exceptions.JsonDecodingFailed;
-import com.bcorp.pojos.DataValue;
+import com.bcorp.pojos.CachedDataValue;
+import com.bcorp.pojos.RequestDataValue;
 import com.fasterxml.jackson.databind.JsonNode;
 
 public class CacheHandlerUtils {
@@ -20,7 +21,7 @@ public class CacheHandlerUtils {
         }
     }
 
-    public static CacheResponse<String> handleCacheResponse(DataValue cacheResponse, JsonCodec jsonCodec) {
+    public static CacheResponse<String> handleCacheResponse(CachedDataValue cacheResponse, JsonCodec jsonCodec) {
 
         if (cacheResponse == null) {
             return CacheResponse.notFound();
@@ -42,9 +43,9 @@ public class CacheHandlerUtils {
         return CacheResponse.success(serializingJsonData.getSuccessResponse(), cacheResponse.version());
     }
 
-    public static Either<JsonNode, CacheError> decodeDataValue(DataValue dataValue, JsonCodec jsonCodec) {
+    public static Either<JsonNode, CacheError> decodeDataValue(CachedDataValue requestDataValue, JsonCodec jsonCodec) {
         try {
-            JsonNode node = jsonCodec.decode(dataValue);
+            JsonNode node = jsonCodec.decode(requestDataValue);
             return Either.success(node);
         } catch (JsonDecodingFailed e) {
             return Either.failed(new CacheError(CacheErrorCode.WRONG_DATA_TYPE, "Failed to decode data to json"));
@@ -60,7 +61,7 @@ public class CacheHandlerUtils {
         }
     }
 
-    public static Either<DataValue, CacheError> encodeJsonNode(JsonNode node, JsonCodec jsonCodec) {
+    public static Either<RequestDataValue, CacheError> encodeJsonNode(JsonNode node, JsonCodec jsonCodec) {
         try {
             return Either.success(jsonCodec.encode(node));
         } catch (JsonDecodingFailed e) {

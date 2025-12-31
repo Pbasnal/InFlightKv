@@ -1,8 +1,9 @@
 package com.bcorp.kvstore;
 
 import com.bcorp.exceptions.ConcurrentUpdateException;
+import com.bcorp.pojos.CachedDataValue;
 import com.bcorp.pojos.DataKey;
-import com.bcorp.pojos.DataValue;
+import com.bcorp.pojos.RequestDataValue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -12,31 +13,28 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import static com.bcorp.testutils.TestUtils.waitFuture;
 import static org.junit.jupiter.api.Assertions.*;
 
 class KeyValuePartitionTest {
 
     private KeyValuePartition partition;
     private DataKey testKey;
-    private DataValue testValue;
+    private RequestDataValue testValue;
+
+    private final KvStoreClock clock = new SystemClock();
 
     @BeforeEach
     void setUp() {
-        partition = new KeyValuePartition(0);
-        testKey = DataKey.fromString("test-key");
-        testValue = new DataValue("test-data".getBytes(StandardCharsets.UTF_8),
-                String.class,
-                System.currentTimeMillis(),
-                0L);
-    }
 
-    private void waitAndAssert(CompletableFuture<DataValue> fut) {
-        assertDoesNotThrow(() -> fut.get(1, TimeUnit.SECONDS));
+        partition = new KeyValuePartition(0, clock);
+        testKey = DataKey.fromString("test-key");
+        testValue = new RequestDataValue("test-data".getBytes(StandardCharsets.UTF_8), String.class);
     }
 
     @Test
     void shouldInitializeWithCorrectPartitionId() {
-        KeyValuePartition testPartition = new KeyValuePartition(5);
+        KeyValuePartition testPartition = new KeyValuePartition(5, clock);
         assertNotNull(testPartition);
         assertEquals(0, testPartition.totalKeys()); // Initially empty
     }
@@ -52,11 +50,11 @@ class KeyValuePartitionTest {
     @Test
     void shouldStoreAndRetrieveValue() throws ExecutionException, InterruptedException, TimeoutException {
         // When - Set value
-        waitAndAssert(partition.set(testKey, testValue, null));
+        waitFuture(partition.set(testKey, testValue, null));
         assertEquals(1, partition.totalKeys());
 
         // When - Get value
-        DataValue getResult = partition.get(testKey).get(1, TimeUnit.SECONDS);
+        CachedDataValue getResult = partition.get(testKey).get(1, TimeUnit.SECONDS);
 
         // Then - Verify get result
         assertNotNull(getResult);
@@ -68,15 +66,15 @@ class KeyValuePartitionTest {
     void shouldUpdateLastAccessTimeOnGet() throws ExecutionException, InterruptedException {
         // Given - Set initial value
         partition.set(testKey, testValue, null).get();
-        CompletableFuture<DataValue> firstGetFuture = partition.get(testKey);
-        DataValue firstGetResult = firstGetFuture.get();
+        CompletableFuture<CachedDataValue> firstGetFuture = partition.get(testKey);
+        CachedDataValue firstGetResult = firstGetFuture.get();
 
         // Wait a bit
         Thread.sleep(10);
 
         // When - Get again
-        CompletableFuture<DataValue> secondGetFuture = partition.get(testKey);
-        DataValue secondGetResult = secondGetFuture.get();
+        CompletableFuture<CachedDataValue> secondGetFuture = partition.get(testKey);
+        CachedDataValue secondGetResult = secondGetFuture.get();
 
         // Then - Last access time should be updated
         assertTrue(secondGetResult.lastAccessTimeMs() > firstGetResult.lastAccessTimeMs());
@@ -88,12 +86,9 @@ class KeyValuePartitionTest {
         partition.set(testKey, testValue, null).get();
 
         // When - Update with new value
-        DataValue updatedValue = new DataValue("updated-data".getBytes(StandardCharsets.UTF_8),
-                String.class,
-                System.currentTimeMillis(),
-                0L); // version will be ignored in UPDATE
-        CompletableFuture<DataValue> updateFuture = partition.set(testKey, updatedValue, null);
-        DataValue updateResult = updateFuture.get();
+        RequestDataValue updatedValue =  RequestDataValue.fromString("updated-data");
+        CompletableFuture<CachedDataValue> updateFuture = partition.set(testKey, updatedValue, null);
+        CachedDataValue updateResult = updateFuture.get();
 
         // Then - Version should be incremented
         assertEquals(1, updateResult.version());
@@ -106,11 +101,8 @@ class KeyValuePartitionTest {
         partition.set(testKey, testValue, null);
 
         // When - Try to update with wrong version
-        DataValue newValue = new DataValue("new-data".getBytes(StandardCharsets.UTF_8),
-                String.class,
-                System.currentTimeMillis(),
-                0L);
-        CompletableFuture<DataValue> future = partition.set(testKey, newValue, 999L); // Wrong version
+        RequestDataValue newValue = RequestDataValue.fromString("new-data");
+        CompletableFuture<CachedDataValue> future = partition.set(testKey, newValue, 999L); // Wrong version
 
         // Then - Should throw ConcurrentUpdateException
         ExecutionException exception = assertThrows(ExecutionException.class, () ->
@@ -125,8 +117,8 @@ class KeyValuePartitionTest {
         partition.set(testKey, testValue, null).get();
 
         // When - Try to set the same data
-        CompletableFuture<DataValue> future = partition.set(testKey, testValue, null);
-        DataValue result = future.get(1, TimeUnit.SECONDS);
+        CompletableFuture<CachedDataValue> future = partition.set(testKey, testValue, null);
+        CachedDataValue result = future.get(1, TimeUnit.SECONDS);
 
         // Then - Should return existing value without version increment
         assertNotNull(result);
@@ -137,11 +129,11 @@ class KeyValuePartitionTest {
     @Test
     void shouldRemoveExistingKey() throws ExecutionException, InterruptedException, TimeoutException {
         // Given - Set value
-        waitAndAssert(partition.set(testKey, testValue, null));
+        waitFuture(partition.set(testKey, testValue, null));
         assertEquals(1, partition.totalKeys());
 
         // When - Remove
-        DataValue removedValue = partition.remove(testKey).get(1, TimeUnit.SECONDS);
+        CachedDataValue removedValue = partition.remove(testKey).get(1, TimeUnit.SECONDS);
 
         // Then
         assertNotNull(removedValue);
@@ -155,10 +147,10 @@ class KeyValuePartitionTest {
     @Test
     void shouldReturnNullWhenRemovingNonExistentKey() throws ExecutionException, InterruptedException, TimeoutException {
         // When - Try to remove non-existent key
-        CompletableFuture<DataValue> future = partition.remove(testKey);
+        CompletableFuture<CachedDataValue> future = partition.remove(testKey);
 
         // Then - Should return null
-        DataValue result = future.get(1, TimeUnit.SECONDS);
+        CachedDataValue result = future.get(1, TimeUnit.SECONDS);
         assertNull(result);
         assertEquals(0, partition.totalKeys());
     }
@@ -213,14 +205,11 @@ class KeyValuePartitionTest {
     @Test
     void shouldHandleOptimisticLockingWithCorrectVersion() throws ExecutionException, InterruptedException, TimeoutException {
         // Given - Set initial value
-        waitAndAssert(partition.set(testKey, testValue, null));
+        waitFuture(partition.set(testKey, testValue, null));
 
         // When - Update with correct version
-        DataValue newValue = new DataValue("new-data".getBytes(StandardCharsets.UTF_8),
-                                          String.class,
-                                          System.currentTimeMillis(),
-                                          0L);
-        DataValue result = partition.set(testKey, newValue, 0L).get(1, TimeUnit.SECONDS); // Correct version
+        RequestDataValue newValue = RequestDataValue.fromString("new-data");
+        CachedDataValue result = partition.set(testKey, newValue, 0L).get(1, TimeUnit.SECONDS); // Correct version
 
         // Then - Should succeed and increment version
         assertNotNull(result);
@@ -234,26 +223,26 @@ class KeyValuePartitionTest {
         DataKey key1 = DataKey.fromString("key1");
         DataKey key2 = DataKey.fromString("key2");
 
-        DataValue value1 = new DataValue("data1".getBytes(StandardCharsets.UTF_8), String.class, System.currentTimeMillis(), 0L);
-        DataValue value2 = new DataValue("data2".getBytes(StandardCharsets.UTF_8), String.class, System.currentTimeMillis(), 0L);
+        RequestDataValue value1 = RequestDataValue.fromString("data1");
+        RequestDataValue value2 = RequestDataValue.fromString("data2");
 
         // Set both keys
-        CompletableFuture<DataValue> setFuture1 = partition.set(key1, value1, null);
-        CompletableFuture<DataValue> setFuture2 = partition.set(key2, value2, null);
+        CompletableFuture<CachedDataValue> setFuture1 = partition.set(key1, value1, null);
+        CompletableFuture<CachedDataValue> setFuture2 = partition.set(key2, value2, null);
 
-        DataValue result1 = setFuture1.get(1, TimeUnit.SECONDS);
-        DataValue result2 = setFuture2.get(1, TimeUnit.SECONDS);
+        CachedDataValue result1 = setFuture1.get(1, TimeUnit.SECONDS);
+        CachedDataValue result2 = setFuture2.get(1, TimeUnit.SECONDS);
 
         assertNotNull(result1);
         assertNotNull(result2);
         assertEquals(2, partition.totalKeys());
 
         // Get both keys
-        CompletableFuture<DataValue> getFuture1 = partition.get(key1);
-        CompletableFuture<DataValue> getFuture2 = partition.get(key2);
+        CompletableFuture<CachedDataValue> getFuture1 = partition.get(key1);
+        CompletableFuture<CachedDataValue> getFuture2 = partition.get(key2);
 
-        DataValue getResult1 = getFuture1.get(1, TimeUnit.SECONDS);
-        DataValue getResult2 = getFuture2.get(1, TimeUnit.SECONDS);
+        CachedDataValue getResult1 = getFuture1.get(1, TimeUnit.SECONDS);
+        CachedDataValue getResult2 = getFuture2.get(1, TimeUnit.SECONDS);
 
         assertArrayEquals(value1.data(), getResult1.data());
         assertArrayEquals(value2.data(), getResult2.data());
@@ -262,19 +251,19 @@ class KeyValuePartitionTest {
     @Test
     void shouldHandleEmptyDataArrays() throws ExecutionException, InterruptedException, TimeoutException {
         // Given - Empty data
-        DataValue emptyValue = new DataValue(new byte[0], String.class, System.currentTimeMillis(), 0L);
+        RequestDataValue emptyValue = new RequestDataValue(new byte[0], String.class);
 
         // When - Set empty value
-        CompletableFuture<DataValue> setFuture = partition.set(testKey, emptyValue, null);
-        DataValue setResult = setFuture.get(1, TimeUnit.SECONDS);
+        CompletableFuture<CachedDataValue> setFuture = partition.set(testKey, emptyValue, null);
+        CachedDataValue setResult = setFuture.get(1, TimeUnit.SECONDS);
 
         // Then
         assertNotNull(setResult);
         assertEquals(0, setResult.data().length);
 
         // When - Get empty value
-        CompletableFuture<DataValue> getFuture = partition.get(testKey);
-        DataValue getResult = getFuture.get(1, TimeUnit.SECONDS);
+        CompletableFuture<CachedDataValue> getFuture = partition.get(testKey);
+        CachedDataValue getResult = getFuture.get(1, TimeUnit.SECONDS);
 
         // Then
         assertNotNull(getResult);
@@ -284,18 +273,18 @@ class KeyValuePartitionTest {
     @Test
     void shouldHandleNullDataInDataValue() throws ExecutionException, InterruptedException, TimeoutException {
         // Given - DataValue with null data (edge case)
-        DataValue nullDataValue = new DataValue(null, String.class, System.currentTimeMillis(), 0L);
+        RequestDataValue nullRequestDataValue = new RequestDataValue(null, String.class);
 
         // When - Set value with null data
-        CompletableFuture<DataValue> setFuture = partition.set(testKey, nullDataValue, null);
-        DataValue setResult = setFuture.get(1, TimeUnit.SECONDS);
+        CompletableFuture<CachedDataValue> setFuture = partition.set(testKey, nullRequestDataValue, null);
+        CachedDataValue setResult = setFuture.get(1, TimeUnit.SECONDS);
 
         // Then - Should handle gracefully
         assertNotNull(setResult);
 
         // When - Get null value
-        CompletableFuture<DataValue> getFuture = partition.get(testKey);
-        DataValue getResult = getFuture.get(1, TimeUnit.SECONDS);
+        CompletableFuture<CachedDataValue> getFuture = partition.get(testKey);
+        CachedDataValue getResult = getFuture.get(1, TimeUnit.SECONDS);
 
         // Then
         assertNotNull(getResult);
@@ -305,7 +294,7 @@ class KeyValuePartitionTest {
     @Test
     void shouldHandleNegativePartitionId() {
         // When - Create partition with negative ID
-        KeyValuePartition negativePartition = new KeyValuePartition(-1);
+        KeyValuePartition negativePartition = new KeyValuePartition(-1, clock);
 
         // Then - Should work normally
         assertNotNull(negativePartition);
@@ -315,7 +304,7 @@ class KeyValuePartitionTest {
     @Test
     void shouldHandleVeryLargePartitionId() {
         // When - Create partition with large ID
-        KeyValuePartition largePartition = new KeyValuePartition(Integer.MAX_VALUE);
+        KeyValuePartition largePartition = new KeyValuePartition(Integer.MAX_VALUE, clock);
 
         // Then - Should work normally
         assertNotNull(largePartition);
@@ -325,9 +314,9 @@ class KeyValuePartitionTest {
     @Test
     void shouldHandleSameKeyMultipleSets() throws ExecutionException, InterruptedException {
         // When - Set same key multiple times
-        DataValue value1 = new DataValue("value1".getBytes(StandardCharsets.UTF_8), String.class, System.currentTimeMillis(), 0L);
-        DataValue value2 = new DataValue("value2".getBytes(StandardCharsets.UTF_8), String.class, System.currentTimeMillis(), 0L);
-        DataValue value3 = new DataValue("value3".getBytes(StandardCharsets.UTF_8), String.class, System.currentTimeMillis(), 0L);
+        RequestDataValue value1 = RequestDataValue.fromString("value1");
+        RequestDataValue value2 = RequestDataValue.fromString("value2");
+        RequestDataValue value3 =  RequestDataValue.fromString("value3");
 
         partition.set(testKey, value1, null).get();
         partition.set(testKey, value2, null).get();
@@ -335,7 +324,7 @@ class KeyValuePartitionTest {
 
         // Then - Should have only one key with latest value and version 2
         assertEquals(1, partition.totalKeys());
-        DataValue result = partition.get(testKey).get();
+        CachedDataValue result = partition.get(testKey).get();
         assertNotNull(result);
         assertEquals(2, result.version());
         assertArrayEquals(value3.data(), result.data());
@@ -345,11 +334,11 @@ class KeyValuePartitionTest {
     void shouldHandleBinaryData() throws ExecutionException, InterruptedException {
         // Given - Binary data (not text)
         byte[] binaryData = {0x00, 0x01, 0x02, (byte) 0xFF, 0x10, 0x20};
-        DataValue binaryValue = new DataValue(binaryData, byte[].class, System.currentTimeMillis(), 0L);
+        RequestDataValue binaryValue = new RequestDataValue(binaryData, byte[].class);
 
         // When - Store and retrieve binary data
         partition.set(testKey, binaryValue, null).get();
-        DataValue result = partition.get(testKey).get();
+        CachedDataValue result = partition.get(testKey).get();
 
         // Then - Should preserve binary data exactly
         assertNotNull(result);
@@ -364,11 +353,11 @@ class KeyValuePartitionTest {
         for (int i = 0; i < largeData.length; i++) {
             largeData[i] = (byte) (i % 256);
         }
-        DataValue largeValue = new DataValue(largeData, byte[].class, System.currentTimeMillis(), 0L);
+        RequestDataValue largeValue = new RequestDataValue(largeData, byte[].class);
 
         // When - Store and retrieve large data
         partition.set(testKey, largeValue, null).get();
-        DataValue result = partition.get(testKey).get();
+        CachedDataValue result = partition.get(testKey).get();
 
         // Then - Should handle large data correctly
         assertNotNull(result);

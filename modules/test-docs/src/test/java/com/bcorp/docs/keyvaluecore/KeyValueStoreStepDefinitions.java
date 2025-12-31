@@ -2,8 +2,10 @@ package com.bcorp.docs.keyvaluecore;
 
 import com.bcorp.exceptions.ConcurrentUpdateException;
 import com.bcorp.kvstore.KeyValueStore;
+import com.bcorp.kvstore.SystemClock;
+import com.bcorp.pojos.CachedDataValue;
 import com.bcorp.pojos.DataKey;
-import com.bcorp.pojos.DataValue;
+import com.bcorp.pojos.RequestDataValue;
 import io.cucumber.java.Before;
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
@@ -17,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.*;
 public class KeyValueStoreStepDefinitions {
     private KeyValueStore keyValueStore;
     private KeyValueStore newKeyValueStore;
-    private DataValue retrievedValue;
+    private CachedDataValue retrievedValue;
     private Exception caughtException;
     private long initialKeyCount;
 
@@ -31,14 +33,14 @@ public class KeyValueStoreStepDefinitions {
 
     @Given("a new KeyValueStore instance")
     public void aNewKeyValueStoreInstance() {
-        keyValueStore = new KeyValueStore();
+        keyValueStore = new KeyValueStore(new SystemClock());
     }
 
     @Given("I set a value {string} for key {string}")
     public void iSetAValueForKey(String value, String key) {
         DataKey dataKey = DataKey.fromString(key);
-        DataValue dataValue = DataValue.fromString(value);
-        keyValueStore.set(dataKey, dataValue, null).join();
+        RequestDataValue requestDataValue = RequestDataValue.fromString(value);
+        keyValueStore.set(dataKey, requestDataValue, null).join();
     }
 
     @Given("I set values for multiple keys:")
@@ -50,7 +52,7 @@ public class KeyValueStoreStepDefinitions {
 
     @Given("the KeyValueStore is initialized")
     public void theKeyValueStoreIsInitialized() {
-        keyValueStore = new KeyValueStore();
+        keyValueStore = new KeyValueStore(new SystemClock());
     }
 
     @Given("I wait a small amount of time")
@@ -96,17 +98,17 @@ public class KeyValueStoreStepDefinitions {
     @When("I update the value to {string} for key {string}")
     public void iUpdateTheValueToForKey(String value, String key) {
         DataKey dataKey = DataKey.fromString(key);
-        DataValue dataValue = DataValue.fromString(value);
-        keyValueStore.set(dataKey, dataValue, null).join();
+        RequestDataValue requestDataValue = RequestDataValue.fromString(value);
+        keyValueStore.set(dataKey, requestDataValue, null).join();
         retrievedValue = keyValueStore.get(dataKey).join();
     }
 
     @When("I set a value {string} for key {string} with previous version {int}")
     public void iSetAValueForKeyWithPreviousVersionWhen(String value, String key, int prevVersion) {
         DataKey dataKey = DataKey.fromString(key);
-        DataValue dataValue = DataValue.fromString(value);
+        RequestDataValue requestDataValue = RequestDataValue.fromString(value);
         try {
-            keyValueStore.set(dataKey, dataValue, (long) prevVersion).join();
+            keyValueStore.set(dataKey, requestDataValue, (long) prevVersion).join();
         } catch (Exception e) {
             caughtException = e.getCause() instanceof Exception ? (Exception) e.getCause() : e;
         }
@@ -122,7 +124,7 @@ public class KeyValueStoreStepDefinitions {
 
     @When("I create a new KeyValueStore instance")
     public void iCreateANewKeyValueStoreInstance() {
-        newKeyValueStore = new KeyValueStore();
+        newKeyValueStore = new KeyValueStore(new SystemClock());
     }
 
     @When("I get the value for key {string} in the new instance")
@@ -135,7 +137,7 @@ public class KeyValueStoreStepDefinitions {
     public void theOperationShouldCompleteAsynchronously() {
         // Verify that operations return CompletableFuture
         DataKey dataKey = DataKey.fromString("async-key");
-        CompletableFuture<DataValue> future = keyValueStore.get(dataKey);
+        CompletableFuture<CachedDataValue> future = keyValueStore.get(dataKey);
         assertNotNull(future, "Operation should return CompletableFuture");
         // The fact that we can call get() or join() confirms it's a CompletableFuture
         // This step documents that operations are async
@@ -144,7 +146,7 @@ public class KeyValueStoreStepDefinitions {
     @Then("the value at key {string} should be {string} with version {int}")
     public void theRetrievedValueShouldBe(String key, String expectedValue, int expectedVersion) {
         DataKey dataKey = DataKey.fromString(key);
-        DataValue value = keyValueStore.get(dataKey).join();
+        CachedDataValue value = keyValueStore.get(dataKey).join();
 
         if (keyValueStore.containsKey(dataKey).join()) {
             assertNotNull(value, "Retrieved value should not be null");
@@ -176,7 +178,7 @@ public class KeyValueStoreStepDefinitions {
     @Then("the value for key {string} should be {string}")
     public void theValueForKeyShouldBe(String key, String expectedValue) {
         DataKey dataKey = DataKey.fromString(key);
-        DataValue value = keyValueStore.get(dataKey).join();
+        CachedDataValue value = keyValueStore.get(dataKey).join();
 
         assertNotNull(value, "Value should not be null");
         String actualValue = new String(value.data(), StandardCharsets.UTF_8);
@@ -195,7 +197,7 @@ public class KeyValueStoreStepDefinitions {
     @Then("getting the value for key {string} should return null")
     public void gettingTheValueForKeyShouldReturnNull(String key) {
         DataKey dataKey = DataKey.fromString(key);
-        DataValue value = keyValueStore.get(dataKey).join();
+        CachedDataValue value = keyValueStore.get(dataKey).join();
         assertNull(value, "Value should be null after removal");
     }
 
@@ -231,7 +233,7 @@ public class KeyValueStoreStepDefinitions {
     public void theLastAccessTimeShouldBeUpdated() {
         // Get the value again to check if access time was updated
         DataKey dataKey = DataKey.fromString("access-time-key");
-        DataValue valueAfterAccess = keyValueStore.get(dataKey).join();
+        CachedDataValue valueAfterAccess = keyValueStore.get(dataKey).join();
         assertNotNull(valueAfterAccess, "Value should exist");
         // The access time should be recent (within last second)
         long currentTime = System.currentTimeMillis();
@@ -244,21 +246,21 @@ public class KeyValueStoreStepDefinitions {
     @Then("key {string} should not exist")
     public void keyShouldNotExist(String key) {
         DataKey dataKey = DataKey.fromString(key);
-        DataValue value = keyValueStore.get(dataKey).join();
+        CachedDataValue value = keyValueStore.get(dataKey).join();
         assertNull(value, "Key should not exist");
     }
 
     @Then("key {string} should still exist")
     public void keyShouldStillExist(String key) {
         DataKey dataKey = DataKey.fromString(key);
-        DataValue value = keyValueStore.get(dataKey).join();
+        CachedDataValue value = keyValueStore.get(dataKey).join();
         assertNotNull(value, "Key should still exist");
     }
 
     @Then("the value should still exist")
     public void theValueShouldStillExist() {
         DataKey dataKey = DataKey.fromString("ttl-key");
-        DataValue value = keyValueStore.get(dataKey).join();
+        CachedDataValue value = keyValueStore.get(dataKey).join();
         assertNotNull(value, "Value should still exist");
     }
 
@@ -267,7 +269,7 @@ public class KeyValueStoreStepDefinitions {
         // This is verified by checking the new value in the previous step
         // The original value "Original" is overwritten by "Overwritten"
         DataKey dataKey = DataKey.fromString("overwrite-test");
-        DataValue value = keyValueStore.get(dataKey).join();
+        CachedDataValue value = keyValueStore.get(dataKey).join();
         assertNotNull(value, "Value should exist");
         String actualValue = new String(value.data(), StandardCharsets.UTF_8);
         assertEquals("Overwritten", actualValue, "Original value should be overwritten");

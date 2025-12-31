@@ -7,6 +7,8 @@ import com.bcorp.api.*;
 import com.bcorp.api.handlers.HandlerResolver;
 import com.bcorp.codec.JsonCodec;
 import com.bcorp.kvstore.KeyValueStore;
+import com.bcorp.kvstore.KvStoreClock;
+import com.bcorp.kvstore.SystemClock;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -14,12 +16,18 @@ import org.springframework.context.annotation.Configuration;
 public class KeyValueStoreEngineConfiguration {
 
     @Bean
-    public KeyValueStore keyValueStore() {
-        return new KeyValueStore();
+    public KvStoreClock kvStoreClock() {
+        return new SystemClock();
+    }
+
+
+    @Bean
+    public KeyValueStore keyValueStore(KvStoreClock clock) {
+        return new KeyValueStore(clock);
     }
 
     @Bean
-    public HandlerResolver handlerResolver() {
+    public HandlerResolver handlerResolver(KvStoreClock clock) {
 
         HandlerResolver handlerResolver = new HandlerResolver();
 

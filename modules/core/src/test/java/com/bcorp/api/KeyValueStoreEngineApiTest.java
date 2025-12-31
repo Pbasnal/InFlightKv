@@ -11,12 +11,13 @@ import com.bcorp.codec.JsonCodec;
 import com.bcorp.codec.StringCodec;
 import com.bcorp.exceptions.HandlerNotFoundException;
 import com.bcorp.kvstore.KeyValueStore;
+import com.bcorp.kvstore.KvStoreClock;
+import com.bcorp.kvstore.SystemClock;
+import com.bcorp.pojos.CachedDataValue;
 import com.bcorp.pojos.DataKey;
-import com.bcorp.pojos.DataValue;
-import com.bcorp.testutils.TestUtils;
+import com.bcorp.pojos.RequestDataValue;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,16 +31,6 @@ import java.util.concurrent.CountDownLatch;
 import static com.bcorp.testutils.TestUtils.waitFuture;
 import static org.junit.jupiter.api.Assertions.*;
 
-/**
- * Integration tests for KeyValueStoreEngine API layer.
- * <p>
- * These tests validate that the API can be implemented to suit different needs:
- * - Different data types (String, JSON, custom types)
- * - Different codec implementations
- * - Version-based optimistic locking
- * - Handler resolution and registration
- * - Error handling and edge cases
- */
 @DisplayName("KeyValueStoreEngine API Integration Tests")
 class KeyValueStoreEngineApiTest {
 
@@ -49,9 +40,11 @@ class KeyValueStoreEngineApiTest {
     private KeyValueStoreEngine engine;
     private ObjectMapper objectMapper;
 
+    private final KvStoreClock clock = new SystemClock();
+
     @BeforeEach
     void setUp() {
-        keyValueStore = new KeyValueStore();
+        keyValueStore = new KeyValueStore(clock);
         handlerResolver = new HandlerResolver();
         objectMapper = new ObjectMapper();
     }
@@ -255,7 +248,7 @@ class KeyValueStoreEngineApiTest {
         assertEquals(1, keyValueStore.totalKeys());
 
         // When
-        ResponseHolder<?> removeResponse = waitFuture(engine.removeCache(key, CacheRequestMethod.get()));
+        ResponseHolder<?> removeResponse = waitFuture(engine.removeCache(key, CacheRequestMethod.remove()));
 
         // Then
         assertNotNull(removeResponse);
@@ -504,8 +497,8 @@ class KeyValueStoreEngineApiTest {
     @DisplayName("Should support different handler configurations for different use cases")
     void shouldSupportDifferentHandlerConfigurations() {
         // Given - Two different engine configurations
-        KeyValueStore store1 = new KeyValueStore();
-        KeyValueStore store2 = new KeyValueStore();
+        KeyValueStore store1 = new KeyValueStore(clock);
+        KeyValueStore store2 = new KeyValueStore(clock);
 
         // Configuration 1: String handlers only
         HandlerResolver resolver1 = new HandlerResolver();
@@ -555,13 +548,13 @@ class KeyValueStoreEngineApiTest {
     @DisplayName("Should work with direct KeyValueStore operations for comparison")
     void shouldWorkWithDirectKeyValueStoreOperations() throws JsonProcessingException {
         // Given
-        KeyValueStore directStore = new KeyValueStore();
+        KeyValueStore directStore = new KeyValueStore(clock);
         TestData testData = new TestData(1, Arrays.asList(12, 13, 14, 15));
         String jsonString = objectMapper.writeValueAsString(testData);
 
         // When - Direct operations
-        directStore.set(DataKey.fromString("direct-key"), DataValue.fromString(jsonString), null).join();
-        DataValue retrieved = directStore.get(DataKey.fromString("direct-key")).join();
+        directStore.set(DataKey.fromString("direct-key"), RequestDataValue.fromString(jsonString), null).join();
+        CachedDataValue retrieved = directStore.get(DataKey.fromString("direct-key")).join();
 
         // Then
         assertNotNull(retrieved);
@@ -602,7 +595,7 @@ class KeyValueStoreEngineApiTest {
                     String.class, new StringCodec()
             ));
         }
-        handlerResolver.registerKeyOnlyHandler(CacheRequestMethod.get(), String.class,
+        handlerResolver.registerKeyOnlyHandler(CacheRequestMethod.remove(), String.class,
                 new StringRemoveRequestHandlerHandler(codecProvider));
         engine = new KeyValueStoreEngine(keyValueStore, handlerResolver);
     }
