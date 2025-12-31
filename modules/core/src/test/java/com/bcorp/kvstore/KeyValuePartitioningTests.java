@@ -1,6 +1,5 @@
-package com.bcorp;
+package com.bcorp.kvstore;
 
-import com.bcorp.kvstore.KeyValueStore;
 import com.bcorp.pojos.DataKey;
 import com.bcorp.pojos.DataValue;
 import org.junit.jupiter.api.AfterEach;

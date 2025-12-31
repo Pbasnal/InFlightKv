@@ -1,4 +1,4 @@
-package com.bcorp.apiimpl;
+package com.bcorp.api.testimplementation;
 
 import com.bcorp.api.filters.Filter;
 import com.bcorp.api.handlers.KeyOnlyRequestHandler;
