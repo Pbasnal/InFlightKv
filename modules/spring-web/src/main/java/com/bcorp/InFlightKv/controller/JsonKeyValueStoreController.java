@@ -3,8 +3,8 @@ package com.bcorp.InFlightKv.controller;
 import com.bcorp.InFlightKv.kvengine.CustomCacheRequestMethod;
 import com.bcorp.InFlightKv.pojos.CacheError;
 import com.bcorp.InFlightKv.pojos.CacheResponse;
+import com.bcorp.InFlightKv.service.KeyValueStoreService;
 import com.bcorp.api.CacheRequestMethod;
-import com.bcorp.api.KeyValueStoreEngine;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -14,16 +14,16 @@ import reactor.core.publisher.Mono;
 @RequestMapping("/kv")
 public class JsonKeyValueStoreController {
 
-    private final KeyValueStoreEngine kvEngine;
+    private final KeyValueStoreService keyValueStoreService;
 
-    public JsonKeyValueStoreController(KeyValueStoreEngine kvEngine) {
-        this.kvEngine = kvEngine;
+    public JsonKeyValueStoreController(KeyValueStoreService keyValueStoreService) {
+        this.keyValueStoreService = keyValueStoreService;
     }
 
     @GetMapping("/{key}")
     public Mono<ResponseEntity<CacheResponse<String>>> get(@PathVariable String key) {
         return Mono.fromCallable(() ->
-                        kvEngine.<String, CacheResponse<String>>getCache(key, CacheRequestMethod.get())
+                        keyValueStoreService.get(key)
                                 .thenApply(this::convertToControllerResponse)
                 )
                 .flatMap(Mono::fromFuture);
@@ -34,7 +34,7 @@ public class JsonKeyValueStoreController {
                                                            @RequestBody Mono<String> jsonBody,
                                                            @RequestParam(required = false) Long ifVersion) {
         return jsonBody.map(strBody ->
-                        kvEngine.<String, String, CacheResponse<String>>setCache(key, strBody, ifVersion, CacheRequestMethod.set())
+                        keyValueStoreService.set(key, strBody, ifVersion, false)
                                 .thenApply(this::convertToControllerResponse)
                 )
                 .flatMap(Mono::fromFuture);
@@ -46,7 +46,7 @@ public class JsonKeyValueStoreController {
                                                              @RequestParam(required = false) Long ifVersion) {
         return jsonBody
                 .map(strBody ->
-                        kvEngine.<String, String, CacheResponse<String>>setCache(key, strBody, ifVersion, CustomCacheRequestMethod.patch())
+                        keyValueStoreService.set(key, strBody, ifVersion, true)
                                 .thenApply(this::convertToControllerResponse)
                 )
                 .flatMap(Mono::fromFuture);
@@ -55,7 +55,7 @@ public class JsonKeyValueStoreController {
     @DeleteMapping("/{key}")
     public Mono<ResponseEntity<CacheResponse<String>>> delete(@PathVariable String key) {
         return Mono.fromCallable(() ->
-                        kvEngine.<String, CacheResponse<String>>removeCache(key, CacheRequestMethod.remove())
+                        keyValueStoreService.remove(key)
                                 .thenApply(this::convertToControllerResponse)
                 )
                 .flatMap(Mono::fromFuture);
