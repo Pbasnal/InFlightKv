@@ -14,38 +14,50 @@ This directory contains Docker configuration files to run the InFlightKv Spring 
 
 **Linux/Mac:**
 ```bash
-# Start in foreground
+# Start all services in foreground
 ./docker/run.sh up
 
-# Start in background
+# Start all services in background
 ./docker/run.sh up-d
 
-# Stop application
+# Stop all services
 ./docker/run.sh down
 
-# View logs
+# View logs for all services
 ./docker/run.sh logs
 
-# Check status
+# Check status of all services
 ./docker/run.sh status
+
+# Start specific service (e.g., only service 1)
+./docker/run.sh up-1
+
+# View logs for specific service
+./docker/run.sh logs-1
 ```
 
 **Windows:**
 ```cmd
-REM Start in foreground
+REM Start all services in foreground
 docker\run.bat up
 
-REM Start in background
+REM Start all services in background
 docker\run.bat up-d
 
-REM Stop application
+REM Stop all services
 docker\run.bat down
 
-REM View logs
+REM View logs for all services
 docker\run.bat logs
 
-REM Check status
+REM Check status of all services
 docker\run.bat status
+
+REM Start specific service (e.g., only service 1)
+docker\run.bat up-1
+
+REM View logs for specific service
+docker\run.bat logs-1
 ```
 
 ### Using Docker Compose Directly
@@ -72,9 +84,15 @@ docker\run.bat status
 
 ## Accessing the Application
 
-Once the container is running, the InFlightKv API will be available at:
-- **URL:** http://localhost:8080
-- **Health Check:** You can verify the application is running by checking if the port is accessible
+Once the containers are running, the InFlightKv APIs will be available at:
+- **Service 1:** http://localhost:8080
+- **Service 2:** http://localhost:8081
+- **Service 3:** http://localhost:8082
+
+**Health Checks:**
+- Service 1: http://localhost:8080/actuator/health
+- Service 2: http://localhost:8081/actuator/health
+- Service 3: http://localhost:8082/actuator/health
 
 ## Configuration
 
@@ -90,12 +108,22 @@ environment:
 
 ### Port Configuration
 
-The application runs on port 8080 by default. You can change this in `docker-compose.yml`:
+The services run on ports 8080, 8081, and 8082 by default. You can change these in `docker-compose.yml`:
 
 ```yaml
-ports:
-  - "9090:8080"  # Host port : Container port
+services:
+  inflight-kv-1:
+    ports:
+      - "9090:8080"  # Change host port for service 1
+  inflight-kv-2:
+    ports:
+      - "9091:8080"  # Change host port for service 2
+  inflight-kv-3:
+    ports:
+      - "9092:8080"  # Change host port for service 3
 ```
+
+All services run on container port 8080 internally.
 
 ## Development Workflow
 
@@ -106,7 +134,9 @@ ports:
    ```
 3. **Restart containers:**
    ```bash
-   docker-compose up --build
+   ./docker/run.sh up-d    # Restart all services
+   # OR
+   ./docker/run.sh restart-1  # Restart only service 1
    ```
 
 ## Docker Image Details
@@ -157,12 +187,12 @@ docker-compose logs -f inflight-kv
 /
 ├── .dockerignore              # Files to exclude from Docker context
 ├── docker/
-│   ├── docker-compose.yml     # Docker Compose configuration
-│   ├── run.sh                # Linux/Mac runner script
-│   ├── run.bat               # Windows runner script
+│   ├── docker-compose.yml     # Multi-service Docker Compose configuration
+│   ├── run.sh                # Linux/Mac multi-service runner script
+│   ├── run.bat               # Windows multi-service runner script
 │   └── README.md             # This file
 └── modules/spring-web/
-    └── Dockerfile            # Multi-stage Docker build
+    └── Dockerfile            # Single-stage runtime Docker build
 ```
 
 ## Production Considerations

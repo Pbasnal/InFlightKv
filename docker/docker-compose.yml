@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  inflight-kv:
+  inflight-kv-1:
     build:
       context: ..
       dockerfile: modules/spring-web/Dockerfile
@@ -9,6 +9,33 @@ services:
       - "8080:8080"
     environment:
       - SPRING_PROFILES_ACTIVE=docker
+      - SERVER_PORT=8080
+    networks:
+      - inflight-kv-network
+    restart: unless-stopped
+
+  inflight-kv-2:
+    build:
+      context: ..
+      dockerfile: modules/spring-web/Dockerfile
+    ports:
+      - "8081:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SERVER_PORT=8080
+    networks:
+      - inflight-kv-network
+    restart: unless-stopped
+
+  inflight-kv-3:
+    build:
+      context: ..
+      dockerfile: modules/spring-web/Dockerfile
+    ports:
+      - "8082:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SERVER_PORT=8080
     networks:
       - inflight-kv-network
     restart: unless-stopped
