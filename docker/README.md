@@ -94,7 +94,62 @@ Once the containers are running, the InFlightKv APIs will be available at:
 - Service 2: http://localhost:8081/actuator/health
 - Service 3: http://localhost:8082/actuator/health
 
+**Cluster API Endpoints:**
+- Service 1: http://localhost:8080/api/cluster/status
+- Service 2: http://localhost:8081/api/cluster/status
+- Service 3: http://localhost:8082/api/cluster/status
+
 ## Configuration
+
+### Cluster Configuration
+
+Each service automatically loads cluster configuration that includes information about all nodes:
+
+- **Node Information:** ID, name, host, port, URLs
+- **Health Monitoring:** Each node can check others' health
+- **Service Discovery:** Nodes know about all other instances
+
+### Available Cluster API Endpoints
+
+- `GET /api/cluster/route/{key}` - Route key to determine responsible node
+
+### Key Routing Algorithm
+
+The cluster uses consistent hashing to distribute keys across nodes:
+
+1. **Hash Calculation**: `key.hashCode()`
+2. **Node Selection**: `Math.abs(hash) % node_count`
+3. **Result**: Returns the node responsible for the key and whether to redirect
+
+**Example:**
+```bash
+# Check which node handles "my-key"
+curl http://localhost:8080/api/cluster/route/my-key
+
+# Response:
+{
+  "nodeId": "node-2",
+  "nodeName": "inflight-kv-2",
+  "host": "inflight-kv-2",
+  "port": 8080,
+  "internalUrl": "http://inflight-kv-2:8080",
+  "shouldRedirect": true
+}
+```
+
+**Usage in Code:**
+```java
+@Autowired
+private ClusterService clusterService;
+
+// Route a key
+KeyRoutingResult result = clusterService.routeKey("my-key");
+if (result.isShouldRedirect()) {
+    // Redirect to result.getInternalUrl()
+} else {
+    // Handle locally
+}
+```
 
 ### Environment Variables
 

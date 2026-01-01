@@ -10,6 +10,8 @@ services:
     environment:
       - SPRING_PROFILES_ACTIVE=docker
       - SERVER_PORT=8080
+      - NODE_ID=node-1
+      - NODE_NAME=inflight-kv-1
     networks:
       - inflight-kv-network
     restart: unless-stopped
@@ -23,6 +25,8 @@ services:
     environment:
       - SPRING_PROFILES_ACTIVE=docker
       - SERVER_PORT=8080
+      - NODE_ID=node-2
+      - NODE_NAME=inflight-kv-2
     networks:
       - inflight-kv-network
     restart: unless-stopped
@@ -36,6 +40,8 @@ services:
     environment:
       - SPRING_PROFILES_ACTIVE=docker
       - SERVER_PORT=8080
+      - NODE_ID=node-3
+      - NODE_NAME=inflight-kv-3
     networks:
       - inflight-kv-network
     restart: unless-stopped
