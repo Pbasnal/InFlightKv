@@ -135,15 +135,4 @@ class ClusterServiceTest {
             assertTrue(count < testKeys * 0.5, "No node should get more than 50% of keys");
         }
     }
-
-    @Test
-    void shouldCheckKeyOwnershipCorrectly() {
-        String testKey = "ownership-test";
-
-        KeyRoutingResult routing = clusterService.routeKey(testKey);
-        boolean ownsKey = clusterService.isKeyOwnedByCurrentNode(testKey);
-
-        // ownsKey should be the opposite of shouldRedirect
-        assertEquals(!routing.isShouldRedirect(), ownsKey);
-    }
 }

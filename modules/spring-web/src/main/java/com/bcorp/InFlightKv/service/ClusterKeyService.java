@@ -76,12 +76,6 @@ public class ClusterKeyService {
                 });
     }
 
-    /**
-     * Fetches keys from a specific node
-     *
-     * @param node The node to fetch keys from
-     * @return CompletableFuture containing the list of key-node associations from that node
-     */
     private CompletableFuture<List<KeyNodeInfo>> fetchKeysFromNode(ClusterConfiguration.NodeInfo node) {
         return CompletableFuture.supplyAsync(() -> {
             try {
@@ -115,13 +109,6 @@ public class ClusterKeyService {
         });
     }
 
-    /**
-     * Parses NDJSON response containing key-node information
-     *
-     * @param content The NDJSON response content
-     * @param nodeId The node ID to associate with all keys from this response
-     * @return List of KeyNodeInfo objects
-     */
     private List<KeyNodeInfo> parseKeyNodeInfoList(String content, String nodeId) {
         List<KeyNodeInfo> result = new ArrayList<>();
         String[] lines = content.split("\n");

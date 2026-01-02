@@ -1,8 +1,5 @@
 package com.bcorp.InFlightKv.service;
 
-/**
- * Response object for key routing operations
- */
 public class KeyRoutingResult {
     private final String nodeId;
     private final String nodeName;
