@@ -7,6 +7,7 @@ This directory contains design documentation for the InFlight Key-Value Store sy
 - `kv-store-design.md` - Comprehensive design documentation covering the KeyValueStore and KeyValuePartition classes, including alternative implementation approaches and architectural decisions.
 - `event-loop-vs-threadpool.md` - Detailed explanation of event loops vs thread pools, comparing true event loop implementations with the current single-threaded executor approach.
 - `api-usage-guide.md` - Practical guide for using the Key-Value Store API, including JSON format requirements and common usage patterns.
+- `future-roadmap.md` - Planned features and enhancements roadmap, including persistence, TTL support, and Pub/Sub capabilities.
 
 ## Overview
 
