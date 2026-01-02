@@ -4,7 +4,11 @@
 
 This document describes the design and implementation of the in-memory key-value store system, focusing on the `KeyValueStore` and `KeyValuePartition` classes. The system provides thread-safe, high-performance storage with support for versioning and concurrency control.
 
-**Note**: For practical API usage including JSON format requirements and examples, see the [API Usage Guide](api-usage-guide.md).
+## Architecture Overview
+
+![InFlightKv Architecture](architecture.png)
+
+The architecture diagram above illustrates the high-level design of the InFlightKv system, showing how requests flow through the partitioned key-value store with single-threaded event loops ensuring thread safety.
 
 ## Current Implementation
 
