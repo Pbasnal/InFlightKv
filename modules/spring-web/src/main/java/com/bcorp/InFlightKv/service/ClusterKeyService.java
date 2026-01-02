@@ -1,16 +1,18 @@
 package com.bcorp.InFlightKv.service;
 
 import com.bcorp.InFlightKv.config.ClusterConfiguration;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
+import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -36,6 +38,7 @@ public class ClusterKeyService {
     private KeyValueStoreService keyValueStoreService;
 
     private final RestTemplate restTemplate = new RestTemplate();
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public CompletableFuture<List<KeyNodeInfo>> getAllKeysFromCluster(boolean skipOtherNodes) {
 
@@ -44,11 +47,11 @@ public class ClusterKeyService {
                         .map(key -> new KeyNodeInfo(key.key(), clusterService.getCurrentNodeId()))
                         .collect(Collectors.toList()));
 
-        if (skipOtherNodes) {
+        List<ClusterConfiguration.NodeInfo> nodes = clusterService.getAllNodes();
+        if (skipOtherNodes || nodes == null) {
             return keysOnThisNode;
         }
 
-        List<ClusterConfiguration.NodeInfo> nodes = clusterService.getAllNodes();
         List<CompletableFuture<List<KeyNodeInfo>>> nodeFutures = nodes.stream()
                 .map(this::fetchKeysFromNode)
                 .collect(Collectors.toList());
@@ -85,18 +88,22 @@ public class ClusterKeyService {
                 String keysUrl = node.getInternalUrl() + "/kv?skipOtherNodes=true";
                 logger.debug("Fetching keys from node {} at {}", node.getId(), keysUrl);
 
-                ResponseEntity<List<KeyNodeInfo>> response = restTemplate.exchange(
+                ResponseEntity<String> response = restTemplate.exchange(
                         keysUrl,
                         HttpMethod.GET,
                         null,
-                        new ParameterizedTypeReference<>() {
-                        }
+                        String.class
                 );
 
-                List<KeyNodeInfo> keys = response.getBody();
-                logger.debug("Fetched {} keys from node {}", keys != null ? keys.size() : 0, node.getId());
+                String content = response.getBody();
+                logger.debug("Fetched keys response from node {} (length: {})", node.getId(),
+                           content != null ? content.length() : 0);
 
-                return Objects.requireNonNullElse(keys, Collections.emptyList());
+                if (content == null || content.trim().isEmpty()) {
+                    return Collections.emptyList();
+                }
+
+                return parseKeyNodeInfoList(content, node.getId());
 
             } catch (RestClientException e) {
                 logger.warn("Failed to fetch keys from node {}: {}", node.getId(), e.getMessage());
@@ -106,5 +113,42 @@ public class ClusterKeyService {
                 return Collections.emptyList();
             }
         });
+    }
+
+    /**
+     * Parses NDJSON response containing key-node information
+     *
+     * @param content The NDJSON response content
+     * @param nodeId The node ID to associate with all keys from this response
+     * @return List of KeyNodeInfo objects
+     */
+    private List<KeyNodeInfo> parseKeyNodeInfoList(String content, String nodeId) {
+        List<KeyNodeInfo> result = new ArrayList<>();
+        String[] lines = content.split("\n");
+
+        for (String line : lines) {
+            if (line.trim().isEmpty()) continue;
+
+            try {
+                JsonNode node = objectMapper.readTree(line);
+                JsonNode keyNode = node.get("key");
+                JsonNode nodeField = node.get("node");
+
+                if (keyNode != null && !keyNode.isNull()) {
+                    String key = keyNode.asText();
+                    // Use the node from the response if available, otherwise use the provided nodeId
+                    String nodeValue = (nodeField != null && !nodeField.isNull()) ?
+                                     nodeField.asText() : nodeId;
+                    result.add(new KeyNodeInfo(key, nodeValue));
+                } else {
+                    logger.warn("Skipping invalid key-node info line (missing key): {}", line);
+                }
+            } catch (Exception e) {
+                logger.warn("Failed to parse key-node info from line: {} for node {}", line, nodeId, e);
+            }
+        }
+
+        logger.debug("Parsed {} keys from node {}", result.size(), nodeId);
+        return result;
     }
 }

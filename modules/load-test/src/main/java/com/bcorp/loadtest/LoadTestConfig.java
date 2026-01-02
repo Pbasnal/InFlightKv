@@ -9,6 +9,7 @@ public class LoadTestConfig {
     private String host = "localhost";
     private int port = 8080;
     private int maxDurationSeconds = 300; // 5 minutes
+    private boolean counterTest = false;
 
     public int getThreadCount() {
         return threadCount;
@@ -50,6 +51,14 @@ public class LoadTestConfig {
         this.maxDurationSeconds = maxDurationSeconds;
     }
 
+    public boolean isCounterTest() {
+        return counterTest;
+    }
+
+    public void setCounterTest(boolean counterTest) {
+        this.counterTest = counterTest;
+    }
+
     public String getBaseUrl() {
         return "http://" + host + ":" + port;
     }
@@ -62,6 +71,7 @@ public class LoadTestConfig {
                 ", host='" + host + '\'' +
                 ", port=" + port +
                 ", maxDurationSeconds=" + maxDurationSeconds +
+                ", counterTest=" + counterTest +
                 '}';
     }
 }

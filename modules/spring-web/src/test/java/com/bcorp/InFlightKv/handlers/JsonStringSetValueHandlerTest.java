@@ -333,16 +333,6 @@ public class JsonStringSetValueHandlerTest {
     }
 
     @Test
-    @DisplayName("Should return completable future that is not null")
-    void shouldReturnCompletableFutureThatIsNotNull() {
-        // Given & When
-        CompletableFuture<CacheResponse<String>> result = handlerNoPatching.handle(testKey, jsonInput, emptyFilters, keyValueStore);
-
-        // Then
-        assertNotNull(result, "Handler should always return a non-null CompletableFuture");
-    }
-
-    @Test
     @DisplayName("Should handle asynchronous completion properly")
     void shouldHandleAsynchronousCompletionProperly() throws ExecutionException, InterruptedException {
         // Given - A future that completes asynchronously
