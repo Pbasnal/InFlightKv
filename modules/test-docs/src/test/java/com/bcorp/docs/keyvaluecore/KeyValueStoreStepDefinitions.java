@@ -65,17 +65,6 @@ public class KeyValueStoreStepDefinitions {
         Thread.sleep(50);
     }
 
-//    @Given("I have {int} keys with values")
-//    public void iHaveKeysWithValues(int keyCount) {
-//        if (keyCount == 0) return; // No keys to set up
-//
-//        // Set up test keys for partitioning scenarios
-//        String[] testKeys = {"key-1", "key-2", "key-3", "key-100"};
-//        for (int i = 0; i < Math.min(keyCount, testKeys.length); i++) {
-//            iSetAValueForKey("value-" + (i + 1), testKeys[i]);
-//        }
-//    }
-
     @Given("I set multiple values for keys from {string} to {string}")
     public void iSetMultipleValuesForKeysFromTo(String startKey, String endKey) {
         // Extract number from keys like "mem-key-1" to "mem-key-1000"

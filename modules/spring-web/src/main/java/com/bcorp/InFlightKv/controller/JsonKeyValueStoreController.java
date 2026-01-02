@@ -140,10 +140,33 @@ public class JsonKeyValueStoreController {
     }
 
     @GetMapping("")
-    public Mono<ResponseEntity<List<ClusterKeyService.KeyNodeInfo>>> getAllKeys(@RequestParam(required = false) boolean skipOtherNodes) {
+    public Mono<ResponseEntity<String>> getAllKeys(@RequestParam(required = false) boolean skipOtherNodes) {
         return Mono.fromCallable(() -> clusterKeyService.getAllKeysFromCluster(skipOtherNodes)
-                        .thenApply(ResponseEntity::ok))
+                        .thenApply(this::formatAsNDJSON))
                 .flatMap(Mono::fromFuture);
+    }
+
+    private ResponseEntity<String> formatAsNDJSON(List<ClusterKeyService.KeyNodeInfo> keyNodeInfos) {
+        StringBuilder ndjson = new StringBuilder();
+        for (ClusterKeyService.KeyNodeInfo info : keyNodeInfos) {
+            ndjson.append("{\"key\":\"")
+                  .append(escapeJsonString(info.key()))
+                  .append("\",\"node\":\"")
+                  .append(escapeJsonString(info.node()))
+                  .append("\"}\n");
+        }
+        return ResponseEntity.ok()
+                .header("Content-Type", "application/x-ndjson")
+                .body(ndjson.toString());
+    }
+
+    private String escapeJsonString(String value) {
+        if (value == null) return "";
+        return value.replace("\\", "\\\\")
+                   .replace("\"", "\\\"")
+                   .replace("\n", "\\n")
+                   .replace("\r", "\\r")
+                   .replace("\t", "\\t");
     }
 
     private ResponseEntity<CacheResponse<String>> convertToControllerResponse(CacheResponse<String> response) {

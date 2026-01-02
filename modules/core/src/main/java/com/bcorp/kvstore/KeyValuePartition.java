@@ -51,9 +51,9 @@ public class KeyValuePartition {
 
         eventLoop.execute(() -> {
             CachedDataValue existingValue = keyValueStore.get(key);
-            OperationType operationType = Optional.ofNullable(existingValue)
-                    .map(dataValue -> operationType(expectedOldVersion, value, dataValue))
-                    .orElse(OperationType.INSERT);
+            OperationType operationType = existingValue == null
+                    ? OperationType.INSERT
+                    : operationType(key, value, existingValue, expectedOldVersion);
 
             switch (operationType) {
                 case INSERT -> {
@@ -114,14 +114,21 @@ public class KeyValuePartition {
     }
 
 
-    private OperationType operationType(Long expectedOldVersion, RequestDataValue newValue, CachedDataValue oldValue) {
-        if (Arrays.equals(newValue.data(), oldValue.data())) return OperationType.SKIP;
-
-        if (expectedOldVersion == null) return OperationType.UPDATE;
-
+    private OperationType operationType(DataKey key, RequestDataValue newValue, CachedDataValue oldValue, Long expectedOldVersion) {
         long actualOldVersion = oldValue.version();
-        return actualOldVersion == expectedOldVersion ?
-                OperationType.UPDATE : OperationType.VERSION_MISMATCH;
+
+        if (expectedOldVersion == null || actualOldVersion == expectedOldVersion) {
+            if (Arrays.equals(newValue.data(), oldValue.data())) return OperationType.SKIP;
+            return OperationType.UPDATE;
+        }
+
+        if (expectedOldVersion == -1) {
+            return keyValueStore.containsKey(key)
+                    ? OperationType.VERSION_MISMATCH
+                    : OperationType.INSERT;
+        }
+
+        return OperationType.VERSION_MISMATCH;
     }
 
 

@@ -1,0 +1,41 @@
+spring:
+  application:
+    name: InFlightKv
+
+# Single node configuration
+inflight-kv:
+  node:
+    id: "${NODE_ID:node-1}"
+    name: "${NODE_NAME:inflight-kv}"
+  cluster:
+    nodes:
+      - id: "${NODE_ID:node-1}"
+        name: "${NODE_NAME:inflight-kv}"
+        host: "localhost"
+        port: ${SERVER_PORT:8080}
+        external-url: "http://${EXTERNAL_HOST:localhost}:${SERVER_PORT:8080}"
+        internal-url: "http://localhost:${SERVER_PORT:8080}"
+        health-url: "http://localhost:${SERVER_PORT:8080}/actuator/health"
+
+# Server configuration
+server:
+  port: ${SERVER_PORT:8080}
+
+# Management endpoints
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+# Logging configuration for single node
+logging:
+  level:
+    com.bcorp: INFO
+    org.springframework.web: INFO
+    org.springframework.boot: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
