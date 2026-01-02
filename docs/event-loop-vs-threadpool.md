@@ -185,6 +185,136 @@ eventLoop.execute(() -> {
 - **Event Loop**: Single thread maximizes CPU cache efficiency
 - **Your Implementation**: Multiple threads compete for CPU resources
 
+## Why Single-Threaded Executor vs Normal Thread Pool
+
+While both approaches use threads, the single-threaded executor per partition offers significant advantages over a traditional multi-threaded thread pool for key-value store operations. Here's why:
+
+### Thread Safety and Race Conditions
+
+**Normal Thread Pool Approach:**
+```java
+// Multiple threads accessing shared data structure
+public class ConcurrentKeyValueStore {
+    private final ConcurrentHashMap<DataKey, CachedDataValue> store = new ConcurrentHashMap<>();
+    private final ExecutorService threadPool = Executors.newFixedThreadPool(10);
+
+    public CompletableFuture<CachedDataValue> set(DataKey key, RequestDataValue value, Long prevVersion) {
+        return CompletableFuture.supplyAsync(() -> {
+            // Complex concurrency control needed
+            CachedDataValue existing = store.get(key);
+            if (existing != null && existing.version() != prevVersion) {
+                throw new ConcurrentUpdateException();
+            }
+            CachedDataValue newValue = CachedDataValue.createNewFrom(value, System.currentTimeMillis());
+            store.put(key, newValue);
+            return newValue;
+        }, threadPool);
+    }
+}
+```
+
+**Single-Threaded Executor Approach:**
+```java
+// Single thread per partition - no race conditions possible
+public class KeyValuePartition {
+    private final Map<DataKey, CachedDataValue> keyValueStore = new HashMap<>();
+    private final ExecutorService eventLoop = Executors.newSingleThreadExecutor();
+
+    public CompletableFuture<CachedDataValue> set(DataKey key, RequestDataValue value, Long prevVersion) {
+        CompletableFuture<CachedDataValue> resultFuture = new CompletableFuture<>();
+
+        eventLoop.execute(() -> {
+            // Simple, sequential logic - no concurrency concerns
+            CachedDataValue existingValue = keyValueStore.get(key);
+            if (existingValue != null && existingValue.version() != prevVersion) {
+                resultFuture.completeExceptionally(new ConcurrentUpdateException());
+                return;
+            }
+            CachedDataValue newValue = CachedDataValue.createNewFrom(value, clock.currentTimeMs());
+            keyValueStore.put(key, newValue);
+            resultFuture.complete(newValue);
+        });
+
+        return resultFuture;
+    }
+}
+```
+
+### Key Advantages Over Normal Thread Pools
+
+1. **Eliminated Race Conditions**: Single-threaded execution makes race conditions impossible within a partition
+2. **Simplified Logic**: No need for synchronized blocks, locks, or atomic operations
+3. **Predictable State**: Data structures can be simple HashMap instead of ConcurrentHashMap
+4. **Easier Version Control**: Optimistic concurrency is straightforward without complex CAS operations
+5. **Better Cache Locality**: Single thread maximizes CPU cache efficiency for related operations
+6. **Deterministic Execution**: Operations execute in submission order, making debugging predictable
+7. **Memory Efficiency**: No overhead from concurrent data structures (no extra object headers, no lock objects)
+8. **Fault Isolation**: A crash in one partition doesn't affect others
+
+### Performance Comparison
+
+**Throughput:**
+- **Normal Thread Pool**: Higher peak throughput with multiple threads, but limited by lock contention
+- **Single-Threaded Executor**: Lower peak throughput per partition, but 32 partitions provide parallelism
+
+**Latency:**
+- **Normal Thread Pool**: Variable latency due to lock contention and thread scheduling
+- **Single-Threaded Executor**: Consistent, predictable latency with minimal jitter
+
+**CPU Utilization:**
+- **Normal Thread Pool**: Multiple threads compete for CPU cache and memory bandwidth
+- **Single-Threaded Executor**: Each partition maximizes its thread's CPU cache efficiency
+
+**Scalability:**
+- **Normal Thread Pool**: Scales well until lock contention becomes bottleneck
+- **Single-Threaded Executor**: Scales linearly with partition count
+
+### Memory and Resource Usage
+
+**Normal Thread Pool:**
+- ConcurrentHashMap overhead (extra object headers, lock structures)
+- Potential memory barriers and cache invalidation
+- More complex garbage collection patterns
+
+**Single-Threaded Executor:**
+- Simple HashMap with minimal overhead
+- Predictable memory access patterns
+- Each partition's memory is completely isolated
+
+### Debugging and Maintenance
+
+**Normal Thread Pool:**
+- Race conditions can cause intermittent bugs
+- Complex stack traces across multiple threads
+- Difficult to reproduce concurrency issues
+- Requires specialized concurrent programming knowledge
+
+**Single-Threaded Executor:**
+- Sequential execution makes bugs reproducible
+- Simple stack traces within single thread
+- Traditional debugging tools work perfectly
+- Easier to reason about program flow
+
+### When Normal Thread Pool Might Be Better
+
+Despite these advantages, a normal thread pool could be preferable if:
+- Operations are extremely CPU-intensive and would benefit from parallel execution
+- You need to integrate with existing multi-threaded APIs
+- Memory isn't a concern and you want maximum throughput
+- You're building a cache where stale reads are acceptable
+
+### Conclusion: Why the Current Approach Wins for KV Stores
+
+The single-threaded executor approach is ideal for key-value stores because:
+
+1. **Consistency is Paramount**: KV stores require strict consistency guarantees that single-threaded execution provides naturally
+2. **Operations are Fast**: The overhead of queuing is minimal compared to the operation time
+3. **Debugging Matters**: Most KV store issues are logical, not performance-related
+4. **Memory Efficiency**: Simple data structures reduce memory pressure
+5. **Partitioning Provides Parallelism**: 32 partitions give you the parallelism you need without within-partition concurrency complexity
+
+The trade-off of slightly lower peak throughput per partition is more than compensated by the elimination of concurrency bugs, simplified code, and predictable performance.
+
 ## When to Choose Each Approach
 
 ### Choose True Event Loop When:
