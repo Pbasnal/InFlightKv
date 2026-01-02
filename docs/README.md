@@ -5,6 +5,7 @@ This directory contains design documentation for the InFlight Key-Value Store sy
 ## Files
 
 - `kv-store-design.md` - Comprehensive design documentation covering the KeyValueStore and KeyValuePartition classes, including alternative implementation approaches and architectural decisions.
+- `event-loop-vs-threadpool.md` - Detailed explanation of event loops vs thread pools, comparing true event loop implementations with the current single-threaded executor approach.
 
 ## Overview
 

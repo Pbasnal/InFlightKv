@@ -5,27 +5,17 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 
-/**
- * Load test service specifically for testing counter updates with version conflicts
- */
 public class CounterLoadTestService {
 
     private static final Logger logger = LoggerFactory.getLogger(CounterLoadTestService.class);
 
     private static final String COUNTER_KEY = "shared-counter";
-    private static final int MAX_RETRIES = 10;
     private static final long RETRY_DELAY_MS = 10;
 
     private final LoadTestConfig config;
     private final KvStoreHttpClient httpClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private final AtomicLong totalOperations = new AtomicLong(0);
-    private final AtomicLong successfulUpdates = new AtomicLong(0);
-    private final AtomicLong conflictRetries = new AtomicLong(0);
-    private final AtomicInteger maxRetriesHit = new AtomicInteger(0);
 
     public CounterLoadTestService(LoadTestConfig config) {
         this.config = config;
@@ -68,20 +58,16 @@ public class CounterLoadTestService {
         long finalCounterValue = getFinalCounterValue();
 
         return new CounterLoadTestResults(
-                totalOperations.get(),
-                successfulUpdates.get(),
-                conflictRetries.get(),
-                maxRetriesHit.get(),
-                endTime - startTime,
-                finalCounterValue
+                finalCounterValue,
+                endTime - startTime
         );
     }
 
     private boolean initializeCounter(int i) {
         try {
             // Try to initialize counter to 0 with ifVersion = -1 to ensure only one client can create it
-            String response = httpClient.put(COUNTER_KEY, "{\"count\": 1}", -1L);
-            logger.info("Initialized counter key '{}' to 1", COUNTER_KEY);
+            httpClient.put(COUNTER_KEY, "{\"count\": 1}", -1L);
+            logger.debug("Initialized counter key '{}' to 1", COUNTER_KEY);
             return true;
         } catch (Exception e) {
             logger.warn("Failed to initialize counter, it may already exist: {}", e.getMessage());
@@ -114,10 +100,6 @@ public class CounterLoadTestService {
         }
     }
 
-
-    /**
-     * Worker thread that performs counter updates with retry logic
-     */
     private class CounterUpdateWorker implements Runnable {
 
         private final int threadId;
@@ -125,6 +107,7 @@ public class CounterLoadTestService {
         private final ThreadLocalRandom random = ThreadLocalRandom.current();
 
         private int numberOfSuccessfulOperations = 0;
+        private long threadStartTime;
 
         public CounterUpdateWorker(int threadId, CountDownLatch latch) {
             this.threadId = threadId;
@@ -133,17 +116,20 @@ public class CounterLoadTestService {
 
         @Override
         public void run() {
+            threadStartTime = System.currentTimeMillis();
+
             try {
                 logger.debug("Counter worker thread {} starting", threadId);
 
-                int i = 0;
                 while (numberOfSuccessfulOperations < config.getRequestsPerThread()) {
-                    if (performCounterUpdate(threadId)) {
-                        i++;
+                    if (!performCounterUpdate(threadId)) {
+                        Thread.sleep(RETRY_DELAY_MS + random.nextInt(5));
                     }
                 }
 
-                logger.info("Counter worker thread {} completed with " + numberOfSuccessfulOperations, threadId);
+                long threadDuration = System.currentTimeMillis() - threadStartTime;
+                logger.info("Counter worker thread {} completed with {} operations in {}ms",
+                           threadId, numberOfSuccessfulOperations, threadDuration);
             } catch (Exception e) {
                 logger.error("Counter worker thread {} encountered error", threadId, e);
             } finally {
@@ -152,45 +138,42 @@ public class CounterLoadTestService {
         }
 
         private boolean performCounterUpdate(int threadId) {
-            totalOperations.incrementAndGet();
-
             try {
                 // Get current counter value
                 String currentValue = httpClient.get(COUNTER_KEY);
-                boolean isSuccess = false;
                 if (currentValue == null) {
-//                    logger.warn("Counter key not found, reinitializing...");
-                    isSuccess = initializeCounter(threadId);
+                    logger.debug("Counter key not found, reinitializing...");
+                    boolean initSuccess = initializeCounter(threadId);
+                    if (initSuccess) {
+                        numberOfSuccessfulOperations++;
+                        return true;
+                    }
+                    return false;
                 } else {
                     // Parse current count
                     CounterData currentData = parseCounterValue(currentValue);
+                    if (currentData == null) {
+                        logger.warn("Failed to parse counter data for thread {}", threadId);
+                        return false;
+                    }
 
                     // Increment counter
                     long newCount = currentData.count + 1;
                     String newValue = "{\"count\": " + newCount + "}";
-                    // Try to update with new value
-                    CounterData updated = parseCounterValue(httpClient.put(COUNTER_KEY, newValue, currentData.version));
-//                    logger.info("updating counter from "
-//                            + objectMapper.writeValueAsString(currentData)
-//                            + " to " + objectMapper.writeValueAsString(updated));
 
-                    isSuccess = true;
-                }
-                if (isSuccess) {
-                    successfulUpdates.incrementAndGet();
+                    // Try to update with new value
+                    String putResponse = httpClient.put(COUNTER_KEY, newValue, currentData.version);
+                    CounterData updated = parseCounterValue(putResponse);
+
+                    logger.debug("Thread {} updated counter from {} to {}",
+                               threadId, currentData.count, updated != null ? updated.count : "unknown");
+
                     numberOfSuccessfulOperations++;
+                    return true;
                 }
-                return true;
 
             } catch (Exception e) {
-                conflictRetries.incrementAndGet();
-                // Add small random delay before retry
-                try {
-                    Thread.sleep(RETRY_DELAY_MS + random.nextInt(5));
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                    return false;
-                }
+                logger.debug("Counter update failed for thread {}: {}", threadId, e.getMessage());
                 return false;
             }
         }

@@ -32,15 +32,8 @@ public class LoadTestApplication {
 
     private static void printCounterResults(CounterLoadTestResults results) {
         System.out.println("\n=== Counter Load Test Results ===");
-        System.out.println("Total Operations: " + results.getTotalOperations());
-        System.out.println("Successful Updates: " + results.getSuccessfulUpdates());
-        System.out.println("Conflict Retries: " + results.getConflictRetries());
-        System.out.println("Max Retries Hit: " + results.getMaxRetriesHit());
-        System.out.println("Success Rate: " + String.format("%.2f%%", results.getSuccessRate()));
-        System.out.println("Total Duration: " + results.getTotalDurationMs() + "ms");
-        System.out.println("Operations/Second: " + String.format("%.2f", results.getOperationsPerSecond()));
         System.out.println("Final Counter Value: " + results.getFinalCounterValue());
-        System.out.println("Average Retries per Update: " + String.format("%.2f", results.getAverageRetriesPerUpdate()));
+        System.out.println("Total Duration: " + results.getTotalDurationMs() + "ms");
         System.out.println("=================================\n");
     }
 }
