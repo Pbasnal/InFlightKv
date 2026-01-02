@@ -32,17 +32,18 @@ public class ClusterKeyService {
 
     private final RestTemplate restTemplate = new RestTemplate();
 
-    public CompletableFuture<List<DataKey>> getAllKeysFromCluster() {
-        List<ClusterConfiguration.NodeInfo> nodes = clusterService.checkAllNodesHealth().stream()
-                .map(ClusterService.NodeHealthStatus::getNode)
-                .collect(Collectors.toList());
+    public CompletableFuture<List<DataKey>> getAllKeysFromCluster(boolean skipOtherNodes) {
 
-        logger.debug("Fetching keys from {} healthy nodes", nodes.size());
+        CompletableFuture<List<DataKey>> keysOnThisNode = keyValueStoreService.getAllKeys();
+        if (skipOtherNodes) {
+            return keysOnThisNode;
+        }
 
-        // Create a list of futures for fetching keys from each node
+        List<ClusterConfiguration.NodeInfo> nodes = clusterService.getAllNodes();
         List<CompletableFuture<List<DataKey>>> nodeFutures = nodes.stream()
-                .map(node -> fetchKeysFromNode(node))
+                .map(this::fetchKeysFromNode)
                 .collect(Collectors.toList());
+        nodeFutures.add(keysOnThisNode);
 
         // Combine all futures and merge results
         return CompletableFuture.allOf(nodeFutures.toArray(new CompletableFuture[0]))
@@ -64,20 +65,22 @@ public class ClusterKeyService {
 
     /**
      * Fetches keys from a specific node
+     *
      * @param node The node to fetch keys from
      * @return CompletableFuture containing the list of keys from that node
      */
     private CompletableFuture<List<DataKey>> fetchKeysFromNode(ClusterConfiguration.NodeInfo node) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                String keysUrl = node.getExternalUrl() + "/kv";
+                String keysUrl = node.getInternalUrl() + "/kv?skipOtherNodes=true";
                 logger.debug("Fetching keys from node {} at {}", node.getId(), keysUrl);
 
                 ResponseEntity<List<DataKey>> response = restTemplate.exchange(
                         keysUrl,
                         HttpMethod.GET,
                         null,
-                        new ParameterizedTypeReference<List<DataKey>>() {}
+                        new ParameterizedTypeReference<>() {
+                        }
                 );
 
                 List<DataKey> keys = response.getBody();

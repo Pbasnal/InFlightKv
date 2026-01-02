@@ -59,6 +59,10 @@ public class ClusterService {
         }
     }
 
+    public List<ClusterConfiguration.NodeInfo> getAllNodes() {
+        return clusterConfiguration.getNodes();
+    }
+
     public List<NodeHealthStatus> checkAllNodesHealth() {
         return clusterConfiguration.getNodes().stream()
                 .map(node -> new NodeHealthStatus(node, isNodeHealthy(node.getId())))

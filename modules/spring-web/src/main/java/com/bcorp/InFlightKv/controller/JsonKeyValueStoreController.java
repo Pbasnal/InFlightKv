@@ -23,8 +23,8 @@ public class JsonKeyValueStoreController {
     private final ClusterKeyService clusterKeyService;
 
     public JsonKeyValueStoreController(KeyValueStoreService keyValueStoreService,
-                                     ClusterService clusterService,
-                                     ClusterKeyService clusterKeyService) {
+                                       ClusterService clusterService,
+                                       ClusterKeyService clusterKeyService) {
         this.keyValueStoreService = keyValueStoreService;
         this.clusterService = clusterService;
         this.clusterKeyService = clusterKeyService;
@@ -141,8 +141,8 @@ public class JsonKeyValueStoreController {
     }
 
     @GetMapping("")
-    public Mono<ResponseEntity<List<DataKey>>> getAllKeys() {
-        return Mono.fromCallable(() -> clusterKeyService.getAllKeysFromCluster()
+    public Mono<ResponseEntity<List<DataKey>>> getAllKeys(@RequestParam(required = false) boolean skipOtherNodes) {
+        return Mono.fromCallable(() -> clusterKeyService.getAllKeysFromCluster(skipOtherNodes)
                         .thenApply(ResponseEntity::ok))
                 .flatMap(Mono::fromFuture);
     }
