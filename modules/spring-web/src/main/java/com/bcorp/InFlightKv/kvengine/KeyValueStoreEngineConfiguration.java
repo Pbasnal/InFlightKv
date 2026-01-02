@@ -17,6 +17,11 @@ import org.springframework.context.annotation.Configuration;
 public class KeyValueStoreEngineConfiguration {
 
     @Bean
+    public JsonCodec jsonCodec() {
+        return new JsonCodec();
+    }
+
+    @Bean
     public KvStoreClock kvStoreClock() {
         return new SystemClock();
     }
@@ -28,9 +33,7 @@ public class KeyValueStoreEngineConfiguration {
     }
 
     @Bean
-    public HandlerResolver handlerResolver() {
-
-        JsonCodec jsonCodec = new JsonCodec();
+    public HandlerResolver handlerResolver(JsonCodec jsonCodec) {
 
         HandlerResolver handlerResolver = new HandlerResolver();
 

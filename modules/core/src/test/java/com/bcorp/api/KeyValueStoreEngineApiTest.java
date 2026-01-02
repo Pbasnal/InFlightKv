@@ -245,7 +245,7 @@ class KeyValueStoreEngineApiTest {
         String value = "value-to-remove";
 
         waitFuture(engine.setCache(key, value, null, CacheRequestMethod.set()));
-        assertEquals(1, keyValueStore.totalKeys());
+        assertEquals(1, keyValueStore.totalKeys().join());
 
         // When
         ResponseHolder<?> removeResponse = waitFuture(engine.removeCache(key, CacheRequestMethod.remove()));
@@ -254,7 +254,7 @@ class KeyValueStoreEngineApiTest {
         assertNotNull(removeResponse);
         assertNull(removeResponse.errorCode());
         assertEquals(value, removeResponse.data());
-        assertEquals(0, keyValueStore.totalKeys(), "Key should be removed");
+        assertEquals(0, keyValueStore.totalKeys().join(), "Key should be removed");
 
         // Verify key no longer exists
         ResponseHolder<?> getAfterRemove = waitFuture(engine.getCache(key, CacheRequestMethod.get()));
@@ -395,7 +395,7 @@ class KeyValueStoreEngineApiTest {
         // Then
         assertTrue(latch.await(10, java.util.concurrent.TimeUnit.SECONDS), "All threads should complete");
         assertTrue(errors.isEmpty(), "No errors should occur: " + errors);
-        assertEquals(numThreads * operationsPerThread, keyValueStore.totalKeys());
+        assertEquals(numThreads * operationsPerThread, keyValueStore.totalKeys().join());
     }
 
     // ==================== Sequence Operations ====================
@@ -538,8 +538,8 @@ class KeyValueStoreEngineApiTest {
         assertNotNull(response2.data());
 
         // Verify isolation
-        assertEquals(1, store1.totalKeys());
-        assertEquals(1, store2.totalKeys());
+        assertEquals(1, store1.totalKeys().join());
+        assertEquals(1, store2.totalKeys().join());
     }
 
     // ==================== Direct KeyValueStore Operations ====================

@@ -9,11 +9,11 @@ group = "com.bcorp"
 version = "0.0.1-SNAPSHOT"
 description = "In memory key-value store"
 
-java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
-    }
-}
+// java {
+//     toolchain {
+//         languageVersion = JavaLanguageVersion.of(21)
+//     }
+// }
 
 configurations {
     compileOnly {
@@ -31,6 +31,7 @@ dependencies {
 
     implementation(project(":modules:core"))
     implementation("org.springframework.boot:spring-boot-starter-webflux")
+    implementation("org.springframework.boot:spring-boot-starter-actuator")
 
     compileOnly("org.projectlombok:lombok")
     annotationProcessor("org.projectlombok:lombok")

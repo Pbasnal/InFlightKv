@@ -28,10 +28,10 @@ public class HandlerResolver {
      */
 
     // Operations that depend ONLY on key type (GET, REMOVE, EXISTS)
-    private final Map<KeyOnlyHandlerKey, KeyOnlyRequestHandler<?, ?>> keyOnlyHandlers;
+    private final Map<KeyOnlyHandlerProperties, KeyOnlyRequestHandler<?, ?>> keyOnlyHandlers;
 
     // Operations that depend on BOTH key and value type (SET, PATCH, MERGE)
-    private final Map<KeyValueHandlerKey, KeyValueRequestHandler<?, ?, ?>> keyValueHandlers;
+    private final Map<KeyValueHandlerProperties, KeyValueRequestHandler<?, ?, ?>> keyValueHandlers;
 
     public HandlerResolver() {
         this.keyOnlyHandlers = new HashMap<>();
@@ -42,11 +42,11 @@ public class HandlerResolver {
             CacheRequestMethod method,
             Class<K> keyClass,
             KeyOnlyRequestHandler<K, R> handler) {
-        KeyOnlyHandlerKey key = new KeyOnlyHandlerKey(method, keyClass);
+        KeyOnlyHandlerProperties key = new KeyOnlyHandlerProperties(method, keyClass);
         if (keyOnlyHandlers.containsKey(key)) {
             throw new DuplicateHandlerRegistration("Handler for " + key + " already registered");
         }
-        keyOnlyHandlers.put(new KeyOnlyHandlerKey(method, keyClass), handler);
+        keyOnlyHandlers.put(new KeyOnlyHandlerProperties(method, keyClass), handler);
     }
 
     public <K, V, R> void registerKeyValueHandler(
@@ -55,25 +55,25 @@ public class HandlerResolver {
             Class<V> valueClass,
             KeyValueRequestHandler<K, V, R> handler) {
 
-        KeyValueHandlerKey key = new KeyValueHandlerKey(method, keyClass, valueClass);
+        KeyValueHandlerProperties key = new KeyValueHandlerProperties(method, keyClass, valueClass);
         if (keyValueHandlers.containsKey(key)) {
             throw new DuplicateHandlerRegistration("Handler for " + key + " already registered");
         }
 
-        keyValueHandlers.put(new KeyValueHandlerKey(method, keyClass, valueClass), handler);
+        keyValueHandlers.put(new KeyValueHandlerProperties(method, keyClass, valueClass), handler);
     }
 
     @SuppressWarnings("unchecked")
     public <K, V, R> KeyValueRequestHandler<K, V, R> resolveHandler(CacheRequestMethod method, K key, V value) {
         return (KeyValueRequestHandler<K, V, R>)
-                resolve(keyValueHandlers, new KeyValueHandlerKey(method, key.getClass(), value.getClass()));
+                resolve(keyValueHandlers, new KeyValueHandlerProperties(method, key.getClass(), value.getClass()));
     }
 
 
     @SuppressWarnings("unchecked")
     public <K, R> KeyOnlyRequestHandler<K, R> resolveHandler(CacheRequestMethod method, K key) {
         return (KeyOnlyRequestHandler<K, R>)
-                resolve(keyOnlyHandlers, new KeyOnlyHandlerKey(method, key.getClass()));
+                resolve(keyOnlyHandlers, new KeyOnlyHandlerProperties(method, key.getClass()));
     }
 
     private <T> T resolve(Map<?, T> map, Object key) {

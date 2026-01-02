@@ -1,0 +1,58 @@
+spring:
+  application:
+    name: InFlightKv
+
+# Docker-specific configuration for multi-instance setup
+inflight-kv:
+  node:
+    id: "${NODE_ID:node-1}"
+    name: "${NODE_NAME:inflight-kv-1}"
+  cluster:
+    nodes:
+      - id: "node-1"
+        name: "inflight-kv-1"
+        host: "inflight-kv-1"
+        port: 8080
+        external-url: "http://localhost:8080"
+        internal-url: "http://inflight-kv-1:8080"
+        health-url: "http://inflight-kv-1:8080/actuator/health"
+      - id: "node-2"
+        name: "inflight-kv-2"
+        host: "inflight-kv-2"
+        port: 8080
+        external-url: "http://localhost:8081"
+        internal-url: "http://inflight-kv-2:8080"
+        health-url: "http://inflight-kv-2:8080/actuator/health"
+      - id: "node-3"
+        name: "inflight-kv-3"
+        host: "inflight-kv-3"
+        port: 8080
+        external-url: "http://localhost:8082"
+        internal-url: "http://inflight-kv-3:8080"
+        health-url: "http://inflight-kv-3:8080/actuator/health"
+
+# Server configuration
+server:
+  port: 8080
+
+# Management endpoints
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+# Logging configuration for Docker
+logging:
+  level:
+    com.bcorp: INFO
+    org.springframework.web: INFO
+    org.springframework.boot: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: /app/logs/inflight-kv.log

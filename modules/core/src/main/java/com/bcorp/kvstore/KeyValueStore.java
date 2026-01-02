@@ -4,7 +4,11 @@ import com.bcorp.pojos.CachedDataValue;
 import com.bcorp.pojos.DataKey;
 import com.bcorp.pojos.RequestDataValue;
 
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 
 public class KeyValueStore {
     private final KeyValuePartition[] partitions;
@@ -41,14 +45,34 @@ public class KeyValueStore {
         return partitions[getPartition(key)].remove(key);
     }
 
-    public long totalKeys() {
-        long totalKeyCount = 0;
-        for (int i = 0; i < partitions.length; i++) {
-            totalKeyCount += partitions[i].totalKeys();
-        }
+    public CompletableFuture<Long> totalKeys() {
+        CompletableFuture<Long>[] futures = Arrays.stream(partitions)
+                .map(KeyValuePartition::totalKeys)
+                .toArray(CompletableFuture[]::new);
 
-        return totalKeyCount;
+        return CompletableFuture.allOf(futures)
+                .thenApply(v -> Arrays.stream(futures)
+                        .mapToLong(CompletableFuture::join)
+                        .sum()
+                );
+
     }
+
+    public CompletableFuture<List<DataKey>> getAllKeys() {
+        // 1. Create an array of futures from your partitions
+        CompletableFuture<Set<DataKey>>[] futures =
+                Arrays.stream(partitions)
+                        .map(KeyValuePartition::getAllKeys)
+                        .toArray(CompletableFuture[]::new);
+
+        return CompletableFuture.allOf(futures)
+                .thenApply(v -> Arrays.stream(futures)
+                        .map(CompletableFuture::join)
+                        .flatMap(Set::stream)
+                        .collect(Collectors.toList())
+                );
+    }
+
 
     private int getPartition(DataKey key) {
         return (key.hashCode() & 0x7fffffff) % partitions.length;

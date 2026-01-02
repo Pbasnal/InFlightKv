@@ -1,0 +1,43 @@
+# Git
+.git
+.gitignore
+
+# Gradle
+.gradle/
+gradle/
+gradlew
+gradlew.bat
+build/
+
+
+# IDE files
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Documentation
+*.md
+docs/
+
+# Test files
+**/test/
+**/tests/
+
+# Temporary files
+*.tmp
+*.log
+
+# Docker files (avoid recursive copy)
+docker/
+
+# Node modules (if any)
+node_modules/
+
+# Target directories
+target/

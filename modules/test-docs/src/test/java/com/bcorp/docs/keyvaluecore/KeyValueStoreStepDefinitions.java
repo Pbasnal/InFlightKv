@@ -117,7 +117,7 @@ public class KeyValueStoreStepDefinitions {
     @When("I remove the key {string}")
     public void iRemoveTheKey(String key) {
         DataKey dataKey = DataKey.fromString(key);
-        initialKeyCount = keyValueStore.totalKeys();
+        initialKeyCount = keyValueStore.totalKeys().join();
         keyValueStore.remove(dataKey).join();
     }
 
@@ -203,13 +203,13 @@ public class KeyValueStoreStepDefinitions {
 
     @Then("the total key count should decrease by {int}")
     public void theTotalKeyCountShouldDecrease(int decreaseInKeyCount) {
-        long currentKeyCount = keyValueStore.totalKeys();
+        long currentKeyCount = keyValueStore.totalKeys().join();
         assertTrue(initialKeyCount - currentKeyCount == decreaseInKeyCount, "Key count should have decreased by " + decreaseInKeyCount);
     }
 
     @Then("the total key count should be {int}")
     public void theTotalKeyCountShouldBe(int expectedCount) {
-        long actualCount = keyValueStore.totalKeys();
+        long actualCount = keyValueStore.totalKeys().join();
         assertEquals(expectedCount, actualCount, "Total key count should match");
     }
 

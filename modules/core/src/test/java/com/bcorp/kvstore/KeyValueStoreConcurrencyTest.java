@@ -7,7 +7,6 @@ import com.bcorp.pojos.RequestDataValue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
-import org.mockito.plugins.DoNotMockEnforcer;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -74,7 +73,7 @@ public class KeyValueStoreConcurrencyTest {
 
         // Verify all writes succeeded
         assertEquals(numThreads * keysPerThread, successCount.get());
-        assertEquals(numThreads * keysPerThread, keyValueStore.totalKeys());
+        assertEquals(numThreads * keysPerThread, keyValueStore.totalKeys().join());
 
         // Verify all keys can be retrieved correctly
         for (int i = 0; i < numThreads; i++) {
@@ -205,7 +204,7 @@ public class KeyValueStoreConcurrencyTest {
             waitFuture(keyValueStore.set(key, value, null));
         }
 
-        assertEquals(numKeys, keyValueStore.totalKeys());
+        assertEquals(numKeys, keyValueStore.totalKeys().join());
 
         int numThreads = 10;
         CountDownLatch latch = new CountDownLatch(numThreads);
@@ -230,7 +229,7 @@ public class KeyValueStoreConcurrencyTest {
         assertTrue(waitFor(latch, 10), "All threads should complete within timeout");
 
         // Verify total keys decreased
-        assertTrue(keyValueStore.totalKeys() < numKeys, "Some keys should have been removed");
+        assertTrue(keyValueStore.totalKeys().join() < numKeys, "Some keys should have been removed");
 
         assertTrue(removeCount.get() > 0, "Some removes should have succeeded");
     }
@@ -477,7 +476,7 @@ public class KeyValueStoreConcurrencyTest {
         assertTrue(operationCount.get() > 0, "Some operations should have completed");
 
         // Verify final state consistency
-        long finalKeyCount = keyValueStore.totalKeys();
+        long finalKeyCount = keyValueStore.totalKeys().join();
         assertTrue(finalKeyCount >= 0, "Key count should be non-negative");
     }
 
@@ -518,7 +517,7 @@ public class KeyValueStoreConcurrencyTest {
         assertTrue(waitFor(latch, 15), "All threads should complete within timeout");
 
         // Verify all keys are still accessible
-        assertEquals(numThreads * keysPerThread, keyValueStore.totalKeys());
+        assertEquals(numThreads * keysPerThread, keyValueStore.totalKeys().join());
         for (String keyStr : allKeys) {
             DataKey key = DataKey.fromString(keyStr);
             assertTrue(waitFuture(keyValueStore.containsKey(key)),

@@ -36,7 +36,7 @@ class KeyValuePartitionTest {
     void shouldInitializeWithCorrectPartitionId() {
         KeyValuePartition testPartition = new KeyValuePartition(5, clock);
         assertNotNull(testPartition);
-        assertEquals(0, testPartition.totalKeys()); // Initially empty
+        assertEquals(0, testPartition.totalKeys().join()); // Initially empty
     }
 
     @Test
@@ -51,7 +51,7 @@ class KeyValuePartitionTest {
     void shouldStoreAndRetrieveValue() throws ExecutionException, InterruptedException, TimeoutException {
         // When - Set value
         waitFuture(partition.set(testKey, testValue, null));
-        assertEquals(1, partition.totalKeys());
+        assertEquals(1, partition.totalKeys().join());
 
         // When - Get value
         CachedDataValue getResult = partition.get(testKey).get(1, TimeUnit.SECONDS);
@@ -130,7 +130,7 @@ class KeyValuePartitionTest {
     void shouldRemoveExistingKey() throws ExecutionException, InterruptedException, TimeoutException {
         // Given - Set value
         waitFuture(partition.set(testKey, testValue, null));
-        assertEquals(1, partition.totalKeys());
+        assertEquals(1, partition.totalKeys().join());
 
         // When - Remove
         CachedDataValue removedValue = partition.remove(testKey).get(1, TimeUnit.SECONDS);
@@ -138,7 +138,7 @@ class KeyValuePartitionTest {
         // Then
         assertNotNull(removedValue);
         assertArrayEquals(testValue.data(), removedValue.data());
-        assertEquals(0, partition.totalKeys());
+        assertEquals(0, partition.totalKeys().join());
 
         // Verify key is gone
         assertNull(partition.get(testKey).get(1, TimeUnit.SECONDS));
@@ -152,7 +152,7 @@ class KeyValuePartitionTest {
         // Then - Should return null
         CachedDataValue result = future.get(1, TimeUnit.SECONDS);
         assertNull(result);
-        assertEquals(0, partition.totalKeys());
+        assertEquals(0, partition.totalKeys().join());
     }
 
     @Test
@@ -179,27 +179,27 @@ class KeyValuePartitionTest {
         DataKey key3 = DataKey.fromString("key3");
 
         // Initially empty
-        assertEquals(0, partition.totalKeys());
+        assertEquals(0, partition.totalKeys().join());
 
         // Add first key
         partition.set(key1, testValue, null).get();
-        assertEquals(1, partition.totalKeys());
+        assertEquals(1, partition.totalKeys().join());
 
         // Add second key
         partition.set(key2, testValue, null).get();
-        assertEquals(2, partition.totalKeys());
+        assertEquals(2, partition.totalKeys().join());
 
         // Add third key
         partition.set(key3, testValue, null).get();
-        assertEquals(3, partition.totalKeys());
+        assertEquals(3, partition.totalKeys().join());
 
         // Remove one key
         partition.remove(key2).get();
-        assertEquals(2, partition.totalKeys());
+        assertEquals(2, partition.totalKeys().join());
 
         // Try to remove non-existent key (should not change count)
         partition.remove(DataKey.fromString("non-existent")).get();
-        assertEquals(2, partition.totalKeys());
+        assertEquals(2, partition.totalKeys().join());
     }
 
     @Test
@@ -235,7 +235,7 @@ class KeyValuePartitionTest {
 
         assertNotNull(result1);
         assertNotNull(result2);
-        assertEquals(2, partition.totalKeys());
+        assertEquals(2, partition.totalKeys().join());
 
         // Get both keys
         CompletableFuture<CachedDataValue> getFuture1 = partition.get(key1);
@@ -298,7 +298,7 @@ class KeyValuePartitionTest {
 
         // Then - Should work normally
         assertNotNull(negativePartition);
-        assertEquals(0, negativePartition.totalKeys());
+        assertEquals(0, negativePartition.totalKeys().join());
     }
 
     @Test
@@ -308,7 +308,7 @@ class KeyValuePartitionTest {
 
         // Then - Should work normally
         assertNotNull(largePartition);
-        assertEquals(0, largePartition.totalKeys());
+        assertEquals(0, largePartition.totalKeys().join());
     }
 
     @Test
@@ -323,7 +323,7 @@ class KeyValuePartitionTest {
         partition.set(testKey, value3, null).get();
 
         // Then - Should have only one key with latest value and version 2
-        assertEquals(1, partition.totalKeys());
+        assertEquals(1, partition.totalKeys().join());
         CachedDataValue result = partition.get(testKey).get();
         assertNotNull(result);
         assertEquals(2, result.version());
@@ -362,6 +362,6 @@ class KeyValuePartitionTest {
         // Then - Should handle large data correctly
         assertNotNull(result);
         assertArrayEquals(largeData, result.data());
-        assertEquals(1, partition.totalKeys());
+        assertEquals(1, partition.totalKeys().join());
     }
 }

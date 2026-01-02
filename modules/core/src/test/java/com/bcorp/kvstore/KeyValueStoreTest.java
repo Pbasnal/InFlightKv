@@ -43,7 +43,7 @@ class KeyValueStoreTest {
         assertEquals("test-value", new String(retrieved.data(), StandardCharsets.UTF_8));
 
         // Total keys should be 1
-        assertEquals(1, keyValueStore.totalKeys());
+        assertEquals(1, keyValueStore.totalKeys().join());
     }
 
     @Test
@@ -94,7 +94,7 @@ class KeyValueStoreTest {
         RequestDataValue value = RequestDataValue.fromString("to-be-removed");
 
         waitFuture(keyValueStore.set(key, value, null));
-        assertEquals(1, keyValueStore.totalKeys());
+        assertEquals(1, keyValueStore.totalKeys().join());
 
         // When - Remove
         CachedDataValue removedValue = waitFuture(keyValueStore.remove(key));
@@ -102,7 +102,7 @@ class KeyValueStoreTest {
         // Then
         assertNotNull(removedValue);
         assertEquals("to-be-removed", new String(removedValue.data(), StandardCharsets.UTF_8));
-        assertEquals(0, keyValueStore.totalKeys());
+        assertEquals(0, keyValueStore.totalKeys().join());
         assertNull(waitFuture(keyValueStore.get(key)));
     }
 
@@ -113,7 +113,7 @@ class KeyValueStoreTest {
 
         // Then
         assertNull(result);
-        assertEquals(0, keyValueStore.totalKeys());
+        assertEquals(0, keyValueStore.totalKeys().join());
     }
 
     @Test
@@ -164,7 +164,7 @@ class KeyValueStoreTest {
         }
 
         // Verify all keys exist and total count is correct
-        assertEquals(numKeys, keyValueStore.totalKeys());
+        assertEquals(numKeys, keyValueStore.totalKeys().join());
 
         for (int i = 0; i < numKeys; i++) {
             DataKey key = DataKey.fromString("partition-test-" + i);
@@ -181,7 +181,7 @@ class KeyValueStoreTest {
         // Test that totalKeys correctly aggregates from all 32 partitions
 
         // Initially empty
-        assertEquals(0, keyValueStore.totalKeys());
+        assertEquals(0, keyValueStore.totalKeys().join());
 
         // Add keys in batches
         for (int batch = 0; batch < 5; batch++) {
@@ -192,7 +192,7 @@ class KeyValueStoreTest {
             }
         }
 
-        assertEquals(50, keyValueStore.totalKeys());
+        assertEquals(50, keyValueStore.totalKeys().join());
 
         // Remove some keys
         for (int i = 0; i < 10; i++) {
@@ -200,7 +200,7 @@ class KeyValueStoreTest {
             waitFuture(keyValueStore.remove(key));
         }
 
-        assertEquals(40, keyValueStore.totalKeys());
+        assertEquals(40, keyValueStore.totalKeys().join());
     }
 
     @Test
@@ -217,7 +217,7 @@ class KeyValueStoreTest {
         waitFuture(keyValueStore.set(key2, RequestDataValue.fromString("value2"), null));
         waitFuture(keyValueStore.set(key3, RequestDataValue.fromString("value3"), null));
 
-        assertEquals(3, keyValueStore.totalKeys());
+        assertEquals(3, keyValueStore.totalKeys().join());
 
         // Verify all values are correct
         assertEquals("value1", new String(waitFuture(keyValueStore.get(key1)).data(), StandardCharsets.UTF_8));
@@ -226,7 +226,7 @@ class KeyValueStoreTest {
 
         // Remove one key
         waitFuture(keyValueStore.remove(key2));
-        assertEquals(2, keyValueStore.totalKeys());
+        assertEquals(2, keyValueStore.totalKeys().join());
         assertNull(waitFuture(keyValueStore.get(key2)));
         assertTrue(waitFuture(keyValueStore.containsKey(key1)));
         assertTrue(waitFuture(keyValueStore.containsKey(key3)));
@@ -248,7 +248,7 @@ class KeyValueStoreTest {
         waitFuture(keyValueStore.set(key3, RequestDataValue.fromString("different-value"), null));
 
         // All should exist and be retrievable
-        assertEquals(3, keyValueStore.totalKeys());
+        assertEquals(3, keyValueStore.totalKeys().join());
         assertEquals("collision-value-1", new String(waitFuture(keyValueStore.get(key1)).data(), StandardCharsets.UTF_8));
         assertEquals("collision-value-2", new String(waitFuture(keyValueStore.get(key2)).data(), StandardCharsets.UTF_8));
         assertEquals("different-value", new String(waitFuture(keyValueStore.get(key3)).data(), StandardCharsets.UTF_8));
@@ -293,7 +293,7 @@ class KeyValueStoreTest {
             waitFuture(keyValueStore.set(key, value, null));
         }
 
-        assertEquals(numKeys, keyValueStore.totalKeys());
+        assertEquals(numKeys, keyValueStore.totalKeys().join());
 
         // Verify random sampling
         for (int i = 0; i < 10; i++) {
@@ -310,7 +310,7 @@ class KeyValueStoreTest {
             waitFuture(keyValueStore.remove(key));
         }
 
-        assertEquals(numKeys / 2, keyValueStore.totalKeys());
+        assertEquals(numKeys / 2, keyValueStore.totalKeys().join());
     }
 
     @Test

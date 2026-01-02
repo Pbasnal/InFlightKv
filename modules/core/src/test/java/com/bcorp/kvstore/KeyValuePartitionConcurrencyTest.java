@@ -77,7 +77,7 @@ class KeyValuePartitionConcurrencyTest {
                     executor)).join();
 
             // Verify final state
-            assertEquals(numThreads, partition.totalKeys());
+            assertEquals(numThreads, partition.totalKeys().join());
 
             // Verify all keys have expected values
             for (int i = 0; i < numThreads; i++) {
@@ -136,7 +136,7 @@ class KeyValuePartitionConcurrencyTest {
             CachedDataValue finalValue = partition.get(sharedKey).get(5, TimeUnit.SECONDS);
             assertNotNull(finalValue, "Shared key should still exist");
             assertTrue(successfulUpdates.get() > 0, "At least one update should have succeeded");
-            assertEquals(1, partition.totalKeys(), "Should still have only one key");
+            assertEquals(1, partition.totalKeys().join(), "Should still have only one key");
 
         } finally {
             executor.shutdown();
@@ -185,7 +185,7 @@ class KeyValuePartitionConcurrencyTest {
             CompletableFuture.allOf(futures).get();
 
             // Verify final state - all keys should be removed
-            assertEquals(0, partition.totalKeys(), "All keys should be removed in the end");
+            assertEquals(0, partition.totalKeys().join(), "All keys should be removed in the end");
 
         } finally {
             executor.shutdown();
@@ -224,7 +224,7 @@ class KeyValuePartitionConcurrencyTest {
             CompletableFuture.allOf(futures).get();
 
             // Verify final state - should have 50 keys (the reused ones)
-            assertEquals(50, partition.totalKeys(), "Should have 50 keys after high-frequency operations");
+            assertEquals(50, partition.totalKeys().join(), "Should have 50 keys after high-frequency operations");
 
             // Verify all keys exist and have reasonable versions
             for (int i = 0; i < 50; i++) {
@@ -290,7 +290,7 @@ class KeyValuePartitionConcurrencyTest {
             CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).get();
 
             // Verify data integrity - all original keys should still exist
-            assertEquals(numKeys, partition.totalKeys(), "All read-only keys should still exist");
+            assertEquals(numKeys, partition.totalKeys().join(), "All read-only keys should still exist");
 
             // Verify no keys were corrupted
             for (int i = 0; i < numKeys; i++) {
@@ -365,7 +365,7 @@ class KeyValuePartitionConcurrencyTest {
             CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).get();
 
             // Verify final state
-            assertEquals(10, partition.totalKeys(), "Should have 10 keys after mixed workload");
+            assertEquals(10, partition.totalKeys().join(), "Should have 10 keys after mixed workload");
 
             // All keys should exist and have been updated
             for (int i = 0; i < 10; i++) {

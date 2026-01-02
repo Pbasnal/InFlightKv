@@ -5,26 +5,22 @@ import com.bcorp.pojos.CachedDataValue;
 import com.bcorp.pojos.RequestDataValue;
 import com.bcorp.pojos.DataKey;
 
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicLong;
 
 public class KeyValuePartition {
     protected int partitionId;
     protected ExecutorService eventLoop;
     private final Map<DataKey, CachedDataValue> keyValueStore;
+    private final NavigableSet<DataKey> sortedKeys;
     private final KvStoreClock clock;
-    private final AtomicLong totalKeys;
 
     public KeyValuePartition(int _partitionId, KvStoreClock _clock) {
         this.clock = _clock;
         this.partitionId = _partitionId;
         this.eventLoop = Executors.newSingleThreadExecutor();
         this.keyValueStore = new HashMap<>();
-        this.totalKeys = new AtomicLong(0);
+        this.sortedKeys = new TreeSet<>();
     }
 
     public CompletableFuture<CachedDataValue> get(DataKey key) {
@@ -63,7 +59,6 @@ public class KeyValuePartition {
                 case INSERT -> {
                     CachedDataValue updatedValue = CachedDataValue.createNewFrom(value, clock.currentTimeMs());
                     keyValueStore.put(key, updatedValue); // returns null if the value doesn't exist
-                    totalKeys.incrementAndGet();
                     resultFuture.complete(updatedValue);
                 }
                 case UPDATE -> {
@@ -88,8 +83,6 @@ public class KeyValuePartition {
 
         eventLoop.execute(() -> {
                     CachedDataValue value = keyValueStore.remove(key);
-                    if (value != null) totalKeys.decrementAndGet();
-
                     resultFuture.complete(value);
                 }
         );
@@ -105,9 +98,21 @@ public class KeyValuePartition {
         return resultFuture;
     }
 
-    public long totalKeys() {
-        return totalKeys.get();
+    public CompletableFuture<Integer> totalKeys() {
+        CompletableFuture<Integer> resultFuture = new CompletableFuture<>();
+        eventLoop.execute(() -> resultFuture.complete(keyValueStore.size()));
+        return resultFuture;
     }
+
+    public CompletableFuture<Set<DataKey>> getAllKeys() {
+        CompletableFuture<Set<DataKey>> resultFuture = new CompletableFuture<>();
+        eventLoop.execute(() -> {
+            resultFuture.complete(keyValueStore.keySet());
+        });
+
+        return resultFuture;
+    }
+
 
     private OperationType operationType(Long expectedOldVersion, RequestDataValue newValue, CachedDataValue oldValue) {
         if (Arrays.equals(newValue.data(), oldValue.data())) return OperationType.SKIP;
