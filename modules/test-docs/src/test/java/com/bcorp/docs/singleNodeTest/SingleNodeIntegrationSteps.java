@@ -7,8 +7,11 @@ import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
 import io.restassured.RestAssured;
+import io.restassured.config.RedirectConfig;
+import io.restassured.config.RestAssuredConfig;
 import io.restassured.response.Response;
 import io.restassured.specification.RequestSpecification;
+import io.restassured.builder.RequestSpecBuilder;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -24,11 +27,18 @@ public class SingleNodeIntegrationSteps {
     private Response lastResponse;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final Map<String, Integer> storedVersions = new HashMap<>();
+    private RequestSpecification requestSpec;
 
     @Given("the InFlightKv API is running on {string}")
     public void theInFlightKvAPIIsRunningOn(String baseUrl) {
         this.baseUrl = baseUrl;
         RestAssured.baseURI = baseUrl;
+
+        // Configure request spec to NOT follow redirects automatically
+        this.requestSpec = given()
+                .config(RestAssuredConfig.config()
+                        .redirect(RedirectConfig.redirectConfig()
+                                .followRedirects(false)));
     }
 
     @Given("I have a clean key-value store")
@@ -42,9 +52,11 @@ public class SingleNodeIntegrationSteps {
     public void theKeyDoesNotExist(String key) {
         // Attempt to delete the key if it exists, but don't fail if it doesn't
         try {
-            given()
+            Response initialResponse = requestSpec
                     .when()
                     .delete("/kv/" + key);
+
+            lastResponse = follow307RedirectIfNeeded(initialResponse, "DELETE", null);
         } catch (Exception e) {
             // Ignore any exceptions - the key might not exist
         }
@@ -53,10 +65,12 @@ public class SingleNodeIntegrationSteps {
     @When("I store the value {string} with key {string}")
     public void iStoreTheValueWithKey(String value, String key) {
         // Send the plain string value
-        lastResponse = given()
+        Response initialResponse = requestSpec
                 .body(value)
                 .when()
                 .put("/kv/" + key);
+
+        lastResponse = follow307RedirectIfNeeded(initialResponse, "PUT", value);
 
         assertEquals(200, lastResponse.getStatusCode());
         storeVersionFromResponse(key, lastResponse);
@@ -64,10 +78,12 @@ public class SingleNodeIntegrationSteps {
 
     @When("I store the JSON value {string} with key {string}")
     public void iStoreTheJsonValueWithKey(String jsonValue, String key) {
-        lastResponse = given()
+        Response initialResponse = requestSpec
                 .body(jsonValue)
                 .when()
                 .put("/kv/" + key);
+
+        lastResponse = follow307RedirectIfNeeded(initialResponse, "PUT", jsonValue);
 
         assertEquals(200, lastResponse.getStatusCode());
         storeVersionFromResponse(key, lastResponse);
@@ -75,10 +91,12 @@ public class SingleNodeIntegrationSteps {
 
     @When("I store a large JSON document with key {string}")
     public void iStoreALargeJsonDocumentWithKey(String key, String jsonContent) {
-        lastResponse = given()
+        Response initialResponse = requestSpec
                 .body(jsonContent.trim())
                 .when()
                 .put("/kv/" + key);
+
+        lastResponse = follow307RedirectIfNeeded(initialResponse, "PUT", jsonContent.trim());
 
         assertEquals(200, lastResponse.getStatusCode());
         storeVersionFromResponse(key, lastResponse);
@@ -86,10 +104,12 @@ public class SingleNodeIntegrationSteps {
 
     @When("I store an empty string with key {string}")
     public void iStoreAnEmptyStringWithKey(String key) {
-        lastResponse = given()
+        Response initialResponse = requestSpec
                 .body("")
                 .when()
                 .put("/kv/" + key);
+
+        lastResponse = follow307RedirectIfNeeded(initialResponse, "PUT", "");
 
         assertEquals(200, lastResponse.getStatusCode());
         storeVersionFromResponse(key, lastResponse);
@@ -97,10 +117,12 @@ public class SingleNodeIntegrationSteps {
 
     @When("I update the value to {string} for key {string}")
     public void iUpdateTheValueToForKey(String value, String key) {
-        lastResponse = given()
+        Response initialResponse = requestSpec
                 .body(value)
                 .when()
                 .put("/kv/" + key);
+
+        lastResponse = follow307RedirectIfNeeded(initialResponse, "PUT", value);
 
         assertEquals(200, lastResponse.getStatusCode());
         storeVersionFromResponse(key, lastResponse);
@@ -108,11 +130,13 @@ public class SingleNodeIntegrationSteps {
 
     @When("I update the value to {string} for key {string} with expected version {int}")
     public void iUpdateTheValueToForKeyWithExpectedVersion(String value, String key, int expectedVersion) {
-        lastResponse = given()
+        Response initialResponse = requestSpec
                 .queryParam("ifVersion", expectedVersion)
                 .body(value)
                 .when()
                 .put("/kv/" + key);
+
+        lastResponse = follow307RedirectIfNeeded(initialResponse, "PUT", value);
 
         assertEquals(200, lastResponse.getStatusCode());
         storeVersionFromResponse(key, lastResponse);
@@ -120,11 +144,13 @@ public class SingleNodeIntegrationSteps {
 
     @When("I patch the value to {string} for key {string} with expected version {int}")
     public void iPatchTheValueToForKeyWithExpectedVersion(String value, String key, int expectedVersion) {
-        lastResponse = given()
+        Response initialResponse = requestSpec
                 .queryParam("ifVersion", expectedVersion)
                 .body(value)
                 .when()
                 .patch("/kv/" + key);
+
+        lastResponse = follow307RedirectIfNeeded(initialResponse, "PATCH", value);
 
         assertEquals(200, lastResponse.getStatusCode());
         storeVersionFromResponse(key, lastResponse);
@@ -132,10 +158,12 @@ public class SingleNodeIntegrationSteps {
 
     @When("I store the value {string} with key {string} without version check")
     public void iStoreTheValueWithKeyWithoutVersionCheck(String value, String key) {
-        lastResponse = given()
+        Response initialResponse = requestSpec
                 .body(value)
                 .when()
                 .put("/kv/" + key);
+
+        lastResponse = follow307RedirectIfNeeded(initialResponse, "PUT", value);
 
         assertEquals(200, lastResponse.getStatusCode());
         storeVersionFromResponse(key, lastResponse);
@@ -143,39 +171,46 @@ public class SingleNodeIntegrationSteps {
 
     @When("I delete the key {string}")
     public void iDeleteTheKey(String key) {
-        lastResponse = given()
+        Response initialResponse = requestSpec
                 .when()
                 .delete("/kv/" + key);
+
+        lastResponse = follow307RedirectIfNeeded(initialResponse, "DELETE", null);
 
         assertEquals(200, lastResponse.getStatusCode());
     }
 
     @When("I attempt to retrieve a non-existent key {string}")
     public void iAttemptToRetrieveANonExistentKey(String key) {
-        lastResponse = given()
+        Response initialResponse = requestSpec
                 .when()
                 .get("/kv/" + key);
+        lastResponse = follow307RedirectIfNeeded(initialResponse, "GET", null);
     }
 
     @When("I request all keys from the store")
     public void iRequestAllKeysFromTheStore() {
-        lastResponse = given()
+        Response initialResponse = requestSpec
                 .when()
                 .get("/kv");
+        lastResponse = follow307RedirectIfNeeded(initialResponse, "GET", null);
     }
 
     @When("I request routing information for key {string}")
     public void iRequestRoutingInformationForKey(String key) {
-        lastResponse = given()
+        Response initialResponse = requestSpec
                 .when()
                 .get("/api/cluster/route/" + key);
+        lastResponse = follow307RedirectIfNeeded(initialResponse, "GET", null);
     }
 
     @Then("I should be able to retrieve {string} for key {string}")
     public void iShouldBeAbleToRetrieveForKey(String expectedValue, String key) {
-        Response response = given()
+        Response initialResponse = requestSpec
                 .when()
                 .get("/kv/" + key);
+
+        Response response = follow307RedirectIfNeeded(initialResponse, "GET", null);
 
         assertEquals(200, response.getStatusCode());
         response.then().body("data", equalTo(expectedValue));
@@ -183,9 +218,11 @@ public class SingleNodeIntegrationSteps {
 
     @Then("I should be able to retrieve the exact JSON {string} for key {string}")
     public void iShouldBeAbleToRetrieveTheExactJsonForKey(String expectedJson, String key) {
-        Response response = given()
+        Response initialResponse = requestSpec
                 .when()
                 .get("/kv/" + key);
+
+        Response response = follow307RedirectIfNeeded(initialResponse, "GET", null);
 
         assertEquals(200, response.getStatusCode());
         // Remove all spaces from expected JSON for comparison
@@ -197,9 +234,11 @@ public class SingleNodeIntegrationSteps {
 
     @Then("I should be able to retrieve the exact large JSON document for key {string}")
     public void iShouldBeAbleToRetrieveTheExactLargeJsonDocumentForKey(String key) {
-        Response response = given()
+        Response initialResponse = requestSpec
                 .when()
                 .get("/kv/" + key);
+
+        Response response = follow307RedirectIfNeeded(initialResponse, "GET", null);
 
         assertEquals(200, response.getStatusCode());
         assertNotNull(response.getBody().jsonPath().getString("data"));
@@ -207,9 +246,11 @@ public class SingleNodeIntegrationSteps {
 
     @Then("I should be able to retrieve an empty string for key {string}")
     public void iShouldBeAbleToRetrieveAnEmptyStringForKey(String key) {
-        Response response = given()
+        Response initialResponse = requestSpec
                 .when()
                 .get("/kv/" + key);
+
+        Response response = follow307RedirectIfNeeded(initialResponse, "GET", null);
 
         assertEquals(200, response.getStatusCode());
         response.then().body("data", equalTo(""));
@@ -233,9 +274,11 @@ public class SingleNodeIntegrationSteps {
 
     @Then("attempting to retrieve key {string} should return not found")
     public void attemptingToRetrieveKeyShouldReturnNotFound(String key) {
-        Response response = given()
+        Response initialResponse = requestSpec
                 .when()
                 .get("/kv/" + key);
+
+        Response response = follow307RedirectIfNeeded(initialResponse, "GET", null);
 
         assertEquals(404, response.getStatusCode());
     }
@@ -320,10 +363,12 @@ public class SingleNodeIntegrationSteps {
 
     @Given("I have stored {string} with key {string}")
     public void iHaveStoredWithKey(String value, String key) {
-        Response response = given()
+        Response initialResponse = requestSpec
                 .body(value)
                 .when()
                 .put("/kv/" + key);
+
+        Response response = follow307RedirectIfNeeded(initialResponse, "PUT", value);
 
         assertEquals(200, response.getStatusCode());
         storeVersionFromResponse(key, response);
@@ -331,13 +376,58 @@ public class SingleNodeIntegrationSteps {
 
     @And("I store {string} with key {string}")
     public void iStoreWithKey(String value, String key) {
-        Response response = given()
+        Response initialResponse = requestSpec
                 .body(value)
                 .when()
                 .put("/kv/" + key);
 
+        Response response = follow307RedirectIfNeeded(initialResponse, "PUT", value);
+
         assertEquals(200, response.getStatusCode());
         storeVersionFromResponse(key, response);
+    }
+
+
+    private Response follow307RedirectIfNeeded(Response initialResponse, String method, Object body) {
+        Response response = initialResponse;
+
+        // Check if this is a 307 Temporary Redirect
+        if (response.getStatusCode() == 307 || response.getStatusCode() == 301) {
+            String location = response.getHeader("Location");
+
+            // Create new request to follow the redirect, preserving method and body
+            RequestSpecification redirectRequest = given();
+
+            if (body != null) {
+                redirectRequest = redirectRequest.body(body);
+            }
+
+            // Execute the redirect with the same method
+            switch (method.toUpperCase()) {
+                case "GET":
+                    response = redirectRequest.when().get(location);
+                    break;
+                case "PUT":
+                    response = redirectRequest.when().put(location);
+                    break;
+                case "POST":
+                    response = redirectRequest.when().post(location);
+                    break;
+                case "DELETE":
+                    response = redirectRequest.when().delete(location);
+                    break;
+                case "PATCH":
+                    response = redirectRequest.when().patch(location);
+                    break;
+                default:
+                    throw new IllegalArgumentException("Unsupported HTTP method for redirect: " + method);
+            }
+
+            System.out.println("Redirect response status: " + response.getStatusCode());
+
+        }
+
+        return response;
     }
 
     private void storeVersionFromResponse(String key, Response response) {

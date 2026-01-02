@@ -8,7 +8,7 @@ import org.junit.platform.suite.api.Suite;
 
 @Suite
 @IncludeEngines("cucumber")
-@SelectClasspathResource("features")
+@SelectClasspathResource("features/keyvaluecore")
 @ConfigurationParameter(key = Constants.PLUGIN_PROPERTY_NAME, value = "pretty, html:target/cucumber-reports")
 @ConfigurationParameter(key = Constants.GLUE_PROPERTY_NAME, value = "com.bcorp.docs.keyvaluecore")
 public class KeyValueStoreCucumberTest {

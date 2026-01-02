@@ -15,4 +15,5 @@ public class SingleNodeIntegrationTest {
     // This class serves as the test runner for single-node integration tests
     // It uses JUnit Platform Suite to execute Cucumber scenarios
     // Assumes the InFlightKv API is running before tests are executed
+    // Run with: ./gradlew :modules:test-docs:integrationTest
 }
