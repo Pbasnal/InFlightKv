@@ -20,14 +20,6 @@ configurations {
     }
 }
 
-tasks.register<Test>("integrationTest") {
-    description = "Runs integration tests."
-    group = "verification"
-    testClassesDirs = sourceSets["integrationTest"].output.classesDirs
-    classpath = sourceSets["integrationTest"].runtimeClasspath
-    useJUnitPlatform()
-}
-
 group = "com.bcorp"
 version = "unspecified"
 
@@ -53,4 +45,20 @@ dependencies {
 
 tasks.test {
     useJUnitPlatform()
+    // Exclude the integration test suite from the unit test run
+    exclude("com/bcorp/docs/singleNodeTest/**")
+}
+
+tasks.register<Test>("integrationTest") {
+    description = "Runs integration tests."
+    group = "verification"
+
+    // Explicitly point to the integrationTest output
+    testClassesDirs = sourceSets["integrationTest"].output.classesDirs
+    classpath = sourceSets["integrationTest"].runtimeClasspath
+
+    useJUnitPlatform()
+
+    // Optional: Force it to run every time you call this specific task
+    outputs.upToDateWhen { false }
 }
