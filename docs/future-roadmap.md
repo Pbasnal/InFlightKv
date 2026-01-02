@@ -10,6 +10,9 @@ Before advancing to advanced features, InFlightKv requires several foundational 
 
 **Goal**: Implement configurable eviction strategies to manage memory usage and prevent unbounded growth.
 
+#### Background Execution
+Eviction runs on dedicated background threads to ensure the main event loop remains fast and responsive. Memory monitoring triggers eviction asynchronously, preventing eviction operations from blocking client requests.
+
 #### Required Policies
 - **LRU (Least Recently Used)**: Evict least recently accessed items
 - **LFU (Least Frequently Used)**: Evict least frequently accessed items
@@ -17,72 +20,20 @@ Before advancing to advanced features, InFlightKv requires several foundational 
 - **Size-based Eviction**: Evict largest items when approaching memory limits
 - **Random Eviction**: Simple fallback policy
 
-#### Implementation Design
-```java
-interface EvictionPolicy {
-    void onAccess(DataKey key, CachedDataValue value);
-    DataKey selectVictim(Map<DataKey, CachedDataValue> candidates);
-    void onEviction(DataKey key, CachedDataValue value);
-}
-
-class LRUEvictionPolicy implements EvictionPolicy {
-    private final LinkedHashMap<DataKey, Long> accessOrder;
-
-    @Override
-    public DataKey selectVictim(Map<DataKey, CachedDataValue> candidates) {
-        // Return least recently used key
-        return accessOrder.entrySet().stream()
-            .filter(entry -> candidates.containsKey(entry.getKey()))
-            .min(Map.Entry.comparingByValue())
-            .map(Map.Entry::getKey)
-            .orElse(null);
-    }
-}
-```
-
-#### Configuration
-```yaml
-eviction:
-  policy: "LRU"  # LRU, LFU, TTL, SIZE, RANDOM
-  maxMemory: "1GB"
-  targetMemory: "800MB"  # Start eviction when reached
-  checkInterval: "30s"
-```
+#### System Architecture
+![Eviction Architecture](eviction-architecture.png)
 
 ### 2. Data Compression
 
 **Goal**: Reduce memory footprint and storage requirements through intelligent compression.
 
-#### Compression Strategies
+## Compression Strategies
 - **Key Compression**: Dictionary-based compression for repetitive key patterns
 - **Value Compression**: Adaptive compression based on data type and size
 - **Batch Compression**: Compress multiple small values together
 - **LZ4/Snappy**: Fast compression for real-time operations
 - **Zstandard**: High-compression ratio for persistence
 
-#### Implementation Design
-```java
-interface Compressor {
-    byte[] compress(byte[] data);
-    byte[] decompress(byte[] compressedData);
-    String getAlgorithm();
-}
-
-class AdaptiveCompressor implements Compressor {
-    private final LZ4Compressor lz4 = new LZ4Compressor();
-    private final ZstdCompressor zstd = new ZstdCompressor();
-
-    @Override
-    public byte[] compress(byte[] data) {
-        // Choose compression based on data size and type
-        if (data.length < 1024) {
-            return lz4.compress(data); // Fast for small data
-        } else {
-            return zstd.compress(data); // Better ratio for large data
-        }
-    }
-}
-```
 
 #### Performance Impact
 - **Memory Savings**: 30-70% reduction depending on data patterns
