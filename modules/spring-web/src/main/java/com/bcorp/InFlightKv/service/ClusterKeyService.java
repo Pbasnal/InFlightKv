@@ -1,7 +1,6 @@
 package com.bcorp.InFlightKv.service;
 
 import com.bcorp.InFlightKv.config.ClusterConfiguration;
-import com.bcorp.pojos.DataKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,6 +21,12 @@ import java.util.stream.Collectors;
 @Service
 public class ClusterKeyService {
 
+    /**
+     * Represents a key and the node it belongs to
+     */
+    public record KeyNodeInfo(String key, String node) {
+    }
+
     private static final Logger logger = LoggerFactory.getLogger(ClusterKeyService.class);
 
     @Autowired
@@ -32,26 +37,31 @@ public class ClusterKeyService {
 
     private final RestTemplate restTemplate = new RestTemplate();
 
-    public CompletableFuture<List<DataKey>> getAllKeysFromCluster(boolean skipOtherNodes) {
+    public CompletableFuture<List<KeyNodeInfo>> getAllKeysFromCluster(boolean skipOtherNodes) {
 
-        CompletableFuture<List<DataKey>> keysOnThisNode = keyValueStoreService.getAllKeys();
+        CompletableFuture<List<KeyNodeInfo>> keysOnThisNode = keyValueStoreService.getAllKeys()
+                .thenApply(keys -> keys.stream()
+                        .map(key -> new KeyNodeInfo(key.key(), clusterService.getCurrentNodeId()))
+                        .collect(Collectors.toList()));
+
         if (skipOtherNodes) {
             return keysOnThisNode;
         }
 
         List<ClusterConfiguration.NodeInfo> nodes = clusterService.getAllNodes();
-        List<CompletableFuture<List<DataKey>>> nodeFutures = nodes.stream()
+        List<CompletableFuture<List<KeyNodeInfo>>> nodeFutures = nodes.stream()
                 .map(this::fetchKeysFromNode)
                 .collect(Collectors.toList());
+
         nodeFutures.add(keysOnThisNode);
 
         // Combine all futures and merge results
         return CompletableFuture.allOf(nodeFutures.toArray(new CompletableFuture[0]))
                 .thenApply(v -> {
-                    Set<DataKey> allKeys = new HashSet<>();
-                    for (CompletableFuture<List<DataKey>> future : nodeFutures) {
+                    List<KeyNodeInfo> allKeys = new ArrayList<>();
+                    for (CompletableFuture<List<KeyNodeInfo>> future : nodeFutures) {
                         try {
-                            List<DataKey> nodeKeys = future.join();
+                            List<KeyNodeInfo> nodeKeys = future.join();
                             if (nodeKeys != null) {
                                 allKeys.addAll(nodeKeys);
                             }
@@ -59,7 +69,7 @@ public class ClusterKeyService {
                             logger.warn("Failed to fetch keys from a node", e);
                         }
                     }
-                    return new ArrayList<>(allKeys);
+                    return allKeys;
                 });
     }
 
@@ -67,15 +77,15 @@ public class ClusterKeyService {
      * Fetches keys from a specific node
      *
      * @param node The node to fetch keys from
-     * @return CompletableFuture containing the list of keys from that node
+     * @return CompletableFuture containing the list of key-node associations from that node
      */
-    private CompletableFuture<List<DataKey>> fetchKeysFromNode(ClusterConfiguration.NodeInfo node) {
+    private CompletableFuture<List<KeyNodeInfo>> fetchKeysFromNode(ClusterConfiguration.NodeInfo node) {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 String keysUrl = node.getInternalUrl() + "/kv?skipOtherNodes=true";
                 logger.debug("Fetching keys from node {} at {}", node.getId(), keysUrl);
 
-                ResponseEntity<List<DataKey>> response = restTemplate.exchange(
+                ResponseEntity<List<KeyNodeInfo>> response = restTemplate.exchange(
                         keysUrl,
                         HttpMethod.GET,
                         null,
@@ -83,9 +93,10 @@ public class ClusterKeyService {
                         }
                 );
 
-                List<DataKey> keys = response.getBody();
+                List<KeyNodeInfo> keys = response.getBody();
                 logger.debug("Fetched {} keys from node {}", keys != null ? keys.size() : 0, node.getId());
-                return keys != null ? keys : Collections.emptyList();
+
+                return Objects.requireNonNullElse(keys, Collections.emptyList());
 
             } catch (RestClientException e) {
                 logger.warn("Failed to fetch keys from node {}: {}", node.getId(), e.getMessage());

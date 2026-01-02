@@ -48,7 +48,7 @@ public class KeyRoutingResult {
     @Override
     public String toString() {
         return "KeyRoutingResult{" +
-                "nodeId='" + nodeId + '\'' +
+                "node='" + nodeId + '\'' +
                 ", nodeName='" + nodeName + '\'' +
                 ", host='" + host + '\'' +
                 ", port=" + port +

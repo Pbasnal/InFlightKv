@@ -35,6 +35,10 @@ public class ClusterService {
                 .findFirst();
     }
 
+    public String getCurrentNodeId() {
+        return currentNodeId;
+    }
+
     public boolean isNodeHealthy(String nodeId) {
         Optional<ClusterConfiguration.NodeInfo> node = getNodeById(nodeId);
         if (node.isEmpty()) {

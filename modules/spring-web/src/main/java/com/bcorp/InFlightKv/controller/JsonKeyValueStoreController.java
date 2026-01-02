@@ -6,7 +6,6 @@ import com.bcorp.InFlightKv.service.ClusterKeyService;
 import com.bcorp.InFlightKv.service.ClusterService;
 import com.bcorp.InFlightKv.service.KeyRoutingResult;
 import com.bcorp.InFlightKv.service.KeyValueStoreService;
-import com.bcorp.pojos.DataKey;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -141,12 +140,11 @@ public class JsonKeyValueStoreController {
     }
 
     @GetMapping("")
-    public Mono<ResponseEntity<List<DataKey>>> getAllKeys(@RequestParam(required = false) boolean skipOtherNodes) {
+    public Mono<ResponseEntity<List<ClusterKeyService.KeyNodeInfo>>> getAllKeys(@RequestParam(required = false) boolean skipOtherNodes) {
         return Mono.fromCallable(() -> clusterKeyService.getAllKeysFromCluster(skipOtherNodes)
                         .thenApply(ResponseEntity::ok))
                 .flatMap(Mono::fromFuture);
     }
-
 
     private ResponseEntity<CacheResponse<String>> convertToControllerResponse(CacheResponse<String> response) {
         if (response.data() != null) {
