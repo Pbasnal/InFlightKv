@@ -2,6 +2,28 @@
 
 This directory contains Docker configuration files to run the InFlightKv Spring Web application in a containerized environment.
 
+## Quick Setup Options
+
+### Single Node (Development/Testing)
+For development, testing, or simple single-instance deployments:
+
+```bash
+# Linux/Mac
+./docker/run-single.sh up-d    # Start in background
+./docker/run-single.sh test    # Run basic API tests
+
+# Windows
+docker\run-single.bat up-d     # Start in background
+docker\run-single.bat test     # Run basic API tests
+```
+
+**Single Node Access:**
+- API: http://localhost:8080
+- Health: http://localhost:8080/actuator/health
+
+### Multi-Node Cluster (Production)
+For full cluster deployments with multiple nodes:
+
 ## Prerequisites
 
 - Docker installed on your system
@@ -60,14 +82,98 @@ REM View logs for specific service
 docker\run.bat logs-1
 ```
 
-### Using Docker Compose Directly
+### Single Node Setup
+
+**Using Runner Scripts:**
+```bash
+# Linux/Mac
+./docker/run-single.sh up-d     # Start in background
+./docker/run-single.sh logs     # View logs
+./docker/run-single.sh test     # Run API tests
+./docker/run-single.sh down     # Stop
+
+# Windows
+docker\run-single.bat up-d      # Start in background
+docker\run-single.bat logs      # View logs
+docker\run-single.bat test      # Run API tests
+docker\run-single.bat down      # Stop
+```
+
+**Using Docker Compose Directly:**
+```bash
+# Build the application
+./gradlew :modules:spring-web:build -x test
+
+# Start single node
+docker-compose -f docker/docker-compose-single.yml up --build
+
+# Start in background
+docker-compose -f docker/docker-compose-single.yml up -d --build
+
+# Stop
+docker-compose -f docker/docker-compose-single.yml down
+```
+
+### Multi-Node Cluster Setup
+
+**Using Runner Scripts (Recommended):**
+
+**Linux/Mac:**
+```bash
+# Start all services in foreground
+./docker/run.sh up
+
+# Start all services in background
+./docker/run.sh up-d
+
+# Stop all services
+./docker/run.sh down
+
+# View logs for all services
+./docker/run.sh logs
+
+# Check status of all services
+./docker/run.sh status
+
+# Start specific service (e.g., only service 1)
+./docker/run.sh up-1
+
+# View logs for specific service
+./docker/run.sh logs-1
+```
+
+**Windows:**
+```cmd
+REM Start all services in foreground
+docker\run.bat up
+
+REM Start all services in background
+docker\run.bat up-d
+
+REM Stop all services
+docker\run.bat down
+
+REM View logs for all services
+docker\run.bat logs
+
+REM Check status of all services
+docker\run.bat status
+
+REM Start specific service (e.g., only service 1)
+docker\run.bat up-1
+
+REM View logs for specific service
+docker\run.bat logs-1
+```
+
+**Using Docker Compose Directly:**
 
 1. **Build the application:**
    ```bash
    ./gradlew :modules:spring-web:build -x test
    ```
 
-2. **Build and run the container:**
+2. **Build and run the containers:**
    ```bash
    docker-compose up --build
    ```
@@ -84,7 +190,12 @@ docker\run.bat logs-1
 
 ## Accessing the Application
 
-Once the containers are running, the InFlightKv APIs will be available at:
+### Single Node
+- **API:** http://localhost:8080
+- **Health Check:** http://localhost:8080/actuator/health
+- **Cluster API:** http://localhost:8080/api/cluster/route/{key}
+
+### Multi-Node Cluster
 - **Service 1:** http://localhost:8080
 - **Service 2:** http://localhost:8081
 - **Service 3:** http://localhost:8082
@@ -95,16 +206,27 @@ Once the containers are running, the InFlightKv APIs will be available at:
 - Service 3: http://localhost:8082/actuator/health
 
 **Cluster API Endpoints:**
-- Service 1: http://localhost:8080/api/cluster/status
-- Service 2: http://localhost:8081/api/cluster/status
-- Service 3: http://localhost:8082/api/cluster/status
+- Service 1: http://localhost:8080/api/cluster/route/{key}
+- Service 2: http://localhost:8081/api/cluster/route/{key}
+- Service 3: http://localhost:8082/api/cluster/route/{key}
 
 ## Configuration
 
-### Cluster Configuration
+### Single Node Configuration
 
-Each service automatically loads cluster configuration that includes information about all nodes:
+Single-node setup uses the `single-node` Spring profile which configures the application as a standalone instance:
 
+- **Profile:** `single-node`
+- **Node ID:** `node-1` (configurable via `NODE_ID`)
+- **Cluster:** Contains only itself as a node
+- **No redirects:** All operations handled locally
+
+### Multi-Node Cluster Configuration
+
+Multi-node setup uses the `docker` Spring profile with full cluster configuration:
+
+- **Profile:** `docker`
+- **Nodes:** 3-node cluster (configurable)
 - **Node Information:** ID, name, host, port, URLs
 - **Health Monitoring:** Each node can check others' health
 - **Service Discovery:** Nodes know about all other instances

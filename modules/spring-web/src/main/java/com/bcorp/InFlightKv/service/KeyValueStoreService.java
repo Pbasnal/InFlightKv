@@ -50,7 +50,7 @@ public class KeyValueStoreService {
     public CompletableFuture<CacheResponse<String>> set(String key,
                                                         String value,
                                                         Long expectedLatestVersion,
-                                                        boolean mergeInputAndExiting) {
+                                                        boolean mergeInputAndExisting) {
         DataKey dataKey = new DataKey(key);
 
         Either<JsonNode, CacheError> parsingInputJson = CacheHandlerUtils.parseJsonString(value, jsonCodec);
@@ -59,56 +59,69 @@ public class KeyValueStoreService {
         }
 
         JsonNode inputValueNode = parsingInputJson.getSuccessResponse();
+        boolean needsRead = mergeInputAndExisting || expectedLatestVersion != null;
 
-        if (expectedLatestVersion == null && !mergeInputAndExiting) {
-            return keyValueStore.set(dataKey, jsonCodec.encode(inputValueNode), null)
-                    .thenApply(dataValue -> CacheHandlerUtils.handleCacheResponse(dataValue, jsonCodec))
-                    .exceptionally(CacheExceptionUtils::handleCacheExceptions);
-        } else {
-            return keyValueStore.get(dataKey)
-                    .thenCompose(existingData -> checkVersionAndSetValue(dataKey,
-                            inputValueNode,
-                            expectedLatestVersion,
-                            existingData,
-                            keyValueStore,
-                            mergeInputAndExiting))
-                    .exceptionally(CacheExceptionUtils::handleCacheExceptions);
+        if (!needsRead) {
+            return writeValue(dataKey, inputValueNode, null);
         }
+
+        return keyValueStore.get(dataKey)
+                .thenCompose(existingData -> {
+                            Either<Long, CacheError> prevVersionCheck = versionCheck(existingData, expectedLatestVersion);
+                            if (!prevVersionCheck.isSuccess()) {
+                                return CompletableFuture.completedFuture(CacheResponse.failure(prevVersionCheck.getErrorResponse()));
+                            }
+
+                            Either<RequestDataValue, CacheError> dataToSet = getDataToSet(inputValueNode, existingData, mergeInputAndExisting);
+                            if (dataToSet.isSuccess()) {
+                                Long prevVersion = prevVersionCheck.getSuccessResponse();
+                                return keyValueStore.set(dataKey, dataToSet.getSuccessResponse(), prevVersion)
+                                        .thenApply(cacheValue -> CacheHandlerUtils.handleCacheResponse(cacheValue, jsonCodec));
+                            }
+                            return CompletableFuture.completedFuture(CacheResponse.failure(dataToSet.getErrorResponse()));
+                        }
+                );
     }
 
     public CompletableFuture<List<DataKey>> getAllKeys() {
         return keyValueStore.getAllKeys();
     }
 
-    private CompletableFuture<CacheResponse<String>> checkVersionAndSetValue(
-            DataKey key,
-            JsonNode inputValueNode,
-            Long expectedVersion,
-            CachedDataValue existingData,
-            KeyValueStore keyValueStore,
-            boolean mergeInputAndExiting
-    ) {
-        if (existingData == null) {
-            return CompletableFuture.completedFuture(CacheResponse.failure(CacheErrorCode.NOT_FOUND, "Expected version not found"));
-        }
 
-        if (expectedVersion != null && expectedVersion != existingData.version()) {
-            return CompletableFuture.completedFuture(CacheResponse.failure(CacheErrorCode.CONFLICT, "Expected version doesn't match latest version"));
+    private Either<Long, CacheError> versionCheck(CachedDataValue value, Long version) {
+        if (version == null || (value != null && version.equals(value.version()))) {
+            return Either.success(version);
         }
+        return Either.failed(new CacheError(CacheErrorCode.CONFLICT, "Expected version doesn't match latest version"));
+    }
 
-        Either<RequestDataValue, CacheError> dataToSet;
-        if (mergeInputAndExiting) {
-            dataToSet = mergeData(inputValueNode, existingData);
+    private Either<RequestDataValue, CacheError> getDataToSet(JsonNode inputValueNode,
+                                                              CachedDataValue existingData,
+                                                              boolean mergeInputAndExisting) {
+        if (mergeInputAndExisting && existingData != null) {
+            return mergeData(inputValueNode, existingData);
         } else {
-            dataToSet = CacheHandlerUtils.encodeJsonNode(inputValueNode, jsonCodec);
+            return CacheHandlerUtils.encodeJsonNode(inputValueNode, jsonCodec);
+        }
+    }
+
+    private CompletableFuture<CacheResponse<String>> writeValue(
+            DataKey key,
+            JsonNode inputNode,
+            Long prevVersion
+    ) {
+        Either<RequestDataValue, CacheError> encoded =
+                CacheHandlerUtils.encodeJsonNode(inputNode, jsonCodec);
+
+        if (!encoded.isSuccess()) {
+            return CompletableFuture.completedFuture(
+                    CacheResponse.failure(encoded.getErrorResponse())
+            );
         }
 
-        if (!dataToSet.isSuccess()) {
-            return CompletableFuture.completedFuture(CacheResponse.failure(dataToSet.getErrorResponse()));
-        }
-
-        return keyValueStore.set(key, dataToSet.getSuccessResponse(), existingData.version())
-                .thenApply(dataValue -> CacheHandlerUtils.handleCacheResponse(dataValue, jsonCodec));
+        return keyValueStore
+                .set(key, encoded.getSuccessResponse(), prevVersion)
+                .thenApply(dv -> CacheHandlerUtils.handleCacheResponse(dv, jsonCodec));
     }
 
     private Either<RequestDataValue, CacheError> mergeData(JsonNode inputValueNode, CachedDataValue existingData) {
