@@ -1,5 +1,6 @@
 package com.bcorp.loadtest;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,6 +21,7 @@ public class CounterLoadTestService {
 
     private final LoadTestConfig config;
     private final KvStoreHttpClient httpClient;
+    private final ObjectMapper objectMapper = new ObjectMapper();
     private final AtomicLong totalOperations = new AtomicLong(0);
     private final AtomicLong successfulUpdates = new AtomicLong(0);
     private final AtomicLong conflictRetries = new AtomicLong(0);
@@ -32,10 +34,7 @@ public class CounterLoadTestService {
 
     public CounterLoadTestResults runCounterLoadTest() throws InterruptedException {
         logger.info("Starting counter load test with {} threads, {} updates per thread",
-                   config.getThreadCount(), config.getRequestsPerThread());
-
-        // Initialize the counter
-        initializeCounter();
+                config.getThreadCount(), config.getRequestsPerThread());
 
         ExecutorService executor = Executors.newFixedThreadPool(config.getThreadCount());
         CountDownLatch latch = new CountDownLatch(config.getThreadCount());
@@ -78,13 +77,15 @@ public class CounterLoadTestService {
         );
     }
 
-    private void initializeCounter() {
+    private boolean initializeCounter(int i) {
         try {
             // Try to initialize counter to 0 with ifVersion = -1 to ensure only one client can create it
-            httpClient.put(COUNTER_KEY, "{\"count\": 0}", -1L);
-            logger.info("Initialized counter key '{}' to 0", COUNTER_KEY);
+            String response = httpClient.put(COUNTER_KEY, "{\"count\": 1}", -1L);
+            logger.info("Initialized counter key '{}' to 1", COUNTER_KEY);
+            return true;
         } catch (Exception e) {
             logger.warn("Failed to initialize counter, it may already exist: {}", e.getMessage());
+            return false;
         }
     }
 
@@ -93,20 +94,26 @@ public class CounterLoadTestService {
             String response = httpClient.get(COUNTER_KEY);
             if (response != null) {
                 // Simple JSON parsing to extract count value
-                int countStart = response.indexOf("\"count\":");
-                if (countStart != -1) {
-                    int countEnd = response.indexOf("}", countStart);
-                    if (countEnd != -1) {
-                        String countStr = response.substring(countStart + 8, countEnd).trim();
-                        return Long.parseLong(countStr);
-                    }
-                }
+                return parseCounterValue(response).count;
             }
         } catch (Exception e) {
             logger.warn("Failed to get final counter value: {}", e.getMessage());
         }
         return -1; // Error value
     }
+
+    private CounterData parseCounterValue(String jsonValue) {
+        try {
+            CacheResponse response = objectMapper.readValue(jsonValue, CacheResponse.class);
+            CounterData counterData = objectMapper.readValue(response.data, CounterData.class);
+            counterData.version = response.version;
+            return counterData;
+
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
 
     /**
      * Worker thread that performs counter updates with retry logic
@@ -116,6 +123,8 @@ public class CounterLoadTestService {
         private final int threadId;
         private final CountDownLatch latch;
         private final ThreadLocalRandom random = ThreadLocalRandom.current();
+
+        private int numberOfSuccessfulOperations = 0;
 
         public CounterUpdateWorker(int threadId, CountDownLatch latch) {
             this.threadId = threadId;
@@ -127,11 +136,14 @@ public class CounterLoadTestService {
             try {
                 logger.debug("Counter worker thread {} starting", threadId);
 
-                for (int i = 0; i < config.getRequestsPerThread(); i++) {
-                    performCounterUpdate();
+                int i = 0;
+                while (numberOfSuccessfulOperations < config.getRequestsPerThread()) {
+                    if (performCounterUpdate(threadId)) {
+                        i++;
+                    }
                 }
 
-                logger.debug("Counter worker thread {} completed", threadId);
+                logger.info("Counter worker thread {} completed with " + numberOfSuccessfulOperations, threadId);
             } catch (Exception e) {
                 logger.error("Counter worker thread {} encountered error", threadId, e);
             } finally {
@@ -139,86 +151,55 @@ public class CounterLoadTestService {
             }
         }
 
-        private void performCounterUpdate() {
-            int retryCount = 0;
-            boolean success = false;
+        private boolean performCounterUpdate(int threadId) {
+            totalOperations.incrementAndGet();
 
-            while (!success && retryCount < MAX_RETRIES) {
-                totalOperations.incrementAndGet();
-
-                try {
-                    // Get current counter value
-                    String currentValue = httpClient.get(COUNTER_KEY);
-                    if (currentValue == null) {
-                        logger.warn("Counter key not found, reinitializing...");
-                        initializeCounter();
-                        currentValue = "{\"count\": 0}";
-                    }
-
+            try {
+                // Get current counter value
+                String currentValue = httpClient.get(COUNTER_KEY);
+                boolean isSuccess = false;
+                if (currentValue == null) {
+//                    logger.warn("Counter key not found, reinitializing...");
+                    isSuccess = initializeCounter(threadId);
+                } else {
                     // Parse current count
-                    long currentCount = parseCounterValue(currentValue);
+                    CounterData currentData = parseCounterValue(currentValue);
 
                     // Increment counter
-                    long newCount = currentCount + 1;
+                    long newCount = currentData.count + 1;
                     String newValue = "{\"count\": " + newCount + "}";
-
                     // Try to update with new value
-                    httpClient.put(COUNTER_KEY, newValue);
+                    CounterData updated = parseCounterValue(httpClient.put(COUNTER_KEY, newValue, currentData.version));
+//                    logger.info("updating counter from "
+//                            + objectMapper.writeValueAsString(currentData)
+//                            + " to " + objectMapper.writeValueAsString(updated));
 
+                    isSuccess = true;
+                }
+                if (isSuccess) {
                     successfulUpdates.incrementAndGet();
-                    success = true;
-
-                    if (retryCount > 0) {
-                        logger.debug("Thread {} succeeded after {} retries", threadId, retryCount);
-                    }
-
-                } catch (Exception e) {
-                    if (isConflictException(e)) {
-                        // Version conflict - retry
-                        retryCount++;
-                        conflictRetries.incrementAndGet();
-
-                        if (retryCount < MAX_RETRIES) {
-                            // Add small random delay before retry
-                            try {
-                                Thread.sleep(RETRY_DELAY_MS + random.nextInt(5));
-                            } catch (InterruptedException ie) {
-                                Thread.currentThread().interrupt();
-                                return;
-                            }
-                        } else {
-                            maxRetriesHit.incrementAndGet();
-                            logger.warn("Thread {} hit max retries ({}) for counter update", threadId, MAX_RETRIES);
-                        }
-                    } else {
-                        // Other error - don't retry
-                        logger.error("Thread {} failed with non-conflict error: {}", threadId, e.getMessage());
-                        break;
-                    }
+                    numberOfSuccessfulOperations++;
                 }
-            }
-        }
+                return true;
 
-        private long parseCounterValue(String jsonValue) {
-            try {
-                int countStart = jsonValue.indexOf("\"count\":");
-                if (countStart != -1) {
-                    int countEnd = jsonValue.indexOf("}", countStart);
-                    if (countEnd != -1) {
-                        String countStr = jsonValue.substring(countStart + 8, countEnd).trim();
-                        return Long.parseLong(countStr);
-                    }
-                }
             } catch (Exception e) {
-                logger.warn("Failed to parse counter value from: {}", jsonValue);
+                conflictRetries.incrementAndGet();
+                // Add small random delay before retry
+                try {
+                    Thread.sleep(RETRY_DELAY_MS + random.nextInt(5));
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    return false;
+                }
+                return false;
             }
-            return 0; // Default to 0 if parsing fails
         }
+    }
 
-        private boolean isConflictException(Exception e) {
-            // Check if this is a 409 Conflict response
-            String message = e.getMessage();
-            return message != null && (message.contains("409") || message.contains("Conflict"));
-        }
+
+    private boolean isConflictException(Exception e) {
+        // Check if this is a 409 Conflict response
+        String message = e.getMessage();
+        return message != null && (message.contains("409") || message.contains("Conflict"));
     }
 }

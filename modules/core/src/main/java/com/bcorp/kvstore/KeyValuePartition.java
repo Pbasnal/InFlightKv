@@ -115,16 +115,20 @@ public class KeyValuePartition {
 
 
     private OperationType operationType(DataKey key, RequestDataValue newValue, CachedDataValue oldValue, Long expectedOldVersion) {
-        if (Arrays.equals(newValue.data(), oldValue.data())) return OperationType.SKIP;
+        long actualOldVersion = oldValue.version();
 
-        if (expectedOldVersion == null) return OperationType.UPDATE;
-        if (expectedOldVersion == -1) {
-            return keyValueStore.containsKey(key) ? OperationType.SKIP : OperationType.INSERT;
+        if (expectedOldVersion == null || actualOldVersion == expectedOldVersion) {
+            if (Arrays.equals(newValue.data(), oldValue.data())) return OperationType.SKIP;
+            return OperationType.UPDATE;
         }
 
-        long actualOldVersion = oldValue.version();
-        return actualOldVersion == expectedOldVersion ?
-                OperationType.UPDATE : OperationType.VERSION_MISMATCH;
+        if (expectedOldVersion == -1) {
+            return keyValueStore.containsKey(key)
+                    ? OperationType.VERSION_MISMATCH
+                    : OperationType.INSERT;
+        }
+
+        return OperationType.VERSION_MISMATCH;
     }
 
 

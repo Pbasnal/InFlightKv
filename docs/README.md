@@ -1,0 +1,22 @@
+# Design Documentation
+
+This directory contains design documentation for the InFlight Key-Value Store system.
+
+## Files
+
+- `kv-store-design.md` - Comprehensive design documentation covering the KeyValueStore and KeyValuePartition classes, including alternative implementation approaches and architectural decisions.
+
+## Overview
+
+The documentation provides:
+- Detailed analysis of the current partitioned, event-loop based architecture
+- Thread safety and concurrency control mechanisms
+- Alternative approaches with pros/cons analysis
+- Justification for the chosen implementation strategy
+
+## Key Components Documented
+
+- **KeyValueStore**: Main entry point with 32-partition architecture
+- **KeyValuePartition**: Single-threaded event loop implementation for thread safety
+- **Concurrency Control**: Version-based optimistic locking
+- **Performance Characteristics**: Partitioning benefits and tradeoffs

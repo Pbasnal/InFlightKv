@@ -42,14 +42,14 @@ public class KvStoreHttpClient {
     /**
      * PUT operation - create or update a key-value pair
      */
-    public void put(String key, String value) throws IOException {
-        put(key, value, null);
+    public String put(String key, String value) throws IOException {
+        return put(key, value, null);
     }
 
     /**
      * PUT operation - create or update a key-value pair with version control
      */
-    public void put(String key, String value, Long ifVersion) throws IOException {
+    public String put(String key, String value, Long ifVersion) throws IOException {
         String url = baseUrl + "/kv/" + key;
         if (ifVersion != null) {
             url += "?ifVersion=" + ifVersion;
@@ -58,13 +58,7 @@ public class KvStoreHttpClient {
         HttpPut put = new HttpPut(url);
         put.setEntity(new StringEntity(value, ContentType.APPLICATION_JSON));
 
-        try (ClassicHttpResponse response = httpClient.execute(put)) {
-            int statusCode = response.getCode();
-            if (statusCode < 200 || statusCode >= 300) {
-                throw new IOException("PUT failed with status: " + statusCode + " for key: " + key +
-                                    (ifVersion != null ? " (ifVersion: " + ifVersion + ")" : ""));
-            }
-        }
+        return parseHttpResponse(key, httpClient.execute(put), url);
     }
 
     /**
@@ -72,22 +66,24 @@ public class KvStoreHttpClient {
      */
     public String get(String key) throws IOException {
         HttpGet get = new HttpGet(baseUrl + "/kv/" + key);
+        return parseHttpResponse(key, httpClient.execute(get), baseUrl + "/kv/" + key);
+    }
 
-        try (ClassicHttpResponse response = httpClient.execute(get)) {
-            int statusCode = response.getCode();
-            if (statusCode == 404) {
-                return null; // Key not found
-            }
-            if (statusCode < 200 || statusCode >= 300) {
-                throw new IOException("GET failed with status: " + statusCode + " for key: " + key);
-            }
+    private String parseHttpResponse(String key, ClassicHttpResponse response, String url) throws IOException {
+        int statusCode = response.getCode();
+        if (statusCode == 404) {
+            return null; // Key not found
+        }
+        if (statusCode < 200 || statusCode >= 300) {
+            throw new IOException("Request failed with status: " + statusCode + " for key: " + key + " " + url);
+        }
 
-            HttpEntity entity = response.getEntity();
-            try {
-                return entity != null ? EntityUtils.toString(entity, StandardCharsets.UTF_8) : null;
-            } catch (ParseException e) {
-                throw new IOException("Failed to parse response", e);
-            }
+        HttpEntity entity = response.getEntity();
+        try {
+            String responseStr = entity != null ? EntityUtils.toString(entity, StandardCharsets.UTF_8) : null;
+            return responseStr;
+        } catch (ParseException e) {
+            throw new IOException("Failed to parse response", e);
         }
     }
 

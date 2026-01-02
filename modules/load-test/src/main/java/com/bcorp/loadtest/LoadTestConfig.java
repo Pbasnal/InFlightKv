@@ -1,5 +1,6 @@
 package com.bcorp.loadtest;
 
+
 public class LoadTestConfig {
     private int threadCount = 3;
     private int requestsPerThread = 100;
@@ -7,6 +8,22 @@ public class LoadTestConfig {
     private int port = 8080;
     private int maxDurationSeconds = 300; // 5 minutes
     private boolean counterTest = true;
+
+    public String getBaseUrl() {
+        return "http://" + host + ":" + port;
+    }
+
+    @Override
+    public String toString() {
+        return "LoadTestConfig{" +
+                "threadCount=" + threadCount +
+                ", requestsPerThread=" + requestsPerThread +
+                ", host='" + host + '\'' +
+                ", port=" + port +
+                ", maxDurationSeconds=" + maxDurationSeconds +
+                ", counterTest=" + counterTest +
+                '}';
+    }
 
     public int getThreadCount() {
         return threadCount;
@@ -56,19 +73,5 @@ public class LoadTestConfig {
         this.counterTest = counterTest;
     }
 
-    public String getBaseUrl() {
-        return "http://" + host + ":" + port;
-    }
 
-    @Override
-    public String toString() {
-        return "LoadTestConfig{" +
-                "threadCount=" + threadCount +
-                ", requestsPerThread=" + requestsPerThread +
-                ", host='" + host + '\'' +
-                ", port=" + port +
-                ", maxDurationSeconds=" + maxDurationSeconds +
-                ", counterTest=" + counterTest +
-                '}';
-    }
 }
