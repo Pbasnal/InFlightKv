@@ -1,15 +1,12 @@
 package com.bcorp.loadtest;
 
-/**
- * Configuration for load testing
- */
 public class LoadTestConfig {
     private int threadCount = 3;
     private int requestsPerThread = 100;
     private String host = "localhost";
     private int port = 8080;
     private int maxDurationSeconds = 300; // 5 minutes
-    private boolean counterTest = false;
+    private boolean counterTest = true;
 
     public int getThreadCount() {
         return threadCount;

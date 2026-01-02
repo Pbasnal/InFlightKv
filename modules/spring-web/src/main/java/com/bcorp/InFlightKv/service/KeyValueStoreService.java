@@ -88,8 +88,14 @@ public class KeyValueStoreService {
     }
 
 
-    private Either<Long, CacheError> versionCheck(CachedDataValue value, Long version) {
-        if (version == null || (value != null && version.equals(value.version()))) {
+    private Either<Long, CacheError> versionCheck(CachedDataValue existingValue, Long version) {
+        // if existingValue doesn't exist, version should be either null or -1
+        // if existingValue exists, version should be null or same as existing version
+
+        if (existingValue == null && (version == null || version == -1)) {
+            return Either.success(version);
+        }
+        if (existingValue != null && (version == null || version.equals(existingValue.version()))) {
             return Either.success(version);
         }
         return Either.failed(new CacheError(CacheErrorCode.CONFLICT, "Expected version doesn't match latest version"));

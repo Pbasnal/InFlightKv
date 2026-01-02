@@ -80,8 +80,8 @@ public class CounterLoadTestService {
 
     private void initializeCounter() {
         try {
-            // Try to initialize counter to 0
-            httpClient.put(COUNTER_KEY, "{\"count\": 0}");
+            // Try to initialize counter to 0 with ifVersion = -1 to ensure only one client can create it
+            httpClient.put(COUNTER_KEY, "{\"count\": 0}", -1L);
             logger.info("Initialized counter key '{}' to 0", COUNTER_KEY);
         } catch (Exception e) {
             logger.warn("Failed to initialize counter, it may already exist: {}", e.getMessage());

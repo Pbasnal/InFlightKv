@@ -43,13 +43,26 @@ public class KvStoreHttpClient {
      * PUT operation - create or update a key-value pair
      */
     public void put(String key, String value) throws IOException {
-        HttpPut put = new HttpPut(baseUrl + "/kv/" + key);
+        put(key, value, null);
+    }
+
+    /**
+     * PUT operation - create or update a key-value pair with version control
+     */
+    public void put(String key, String value, Long ifVersion) throws IOException {
+        String url = baseUrl + "/kv/" + key;
+        if (ifVersion != null) {
+            url += "?ifVersion=" + ifVersion;
+        }
+
+        HttpPut put = new HttpPut(url);
         put.setEntity(new StringEntity(value, ContentType.APPLICATION_JSON));
 
         try (ClassicHttpResponse response = httpClient.execute(put)) {
             int statusCode = response.getCode();
             if (statusCode < 200 || statusCode >= 300) {
-                throw new IOException("PUT failed with status: " + statusCode + " for key: " + key);
+                throw new IOException("PUT failed with status: " + statusCode + " for key: " + key +
+                                    (ifVersion != null ? " (ifVersion: " + ifVersion + ")" : ""));
             }
         }
     }
@@ -136,39 +149,27 @@ public class KvStoreHttpClient {
     private List<KeyNodeInfo> parseKeyNodeInfoList(String content) throws IOException {
         List<KeyNodeInfo> result = new ArrayList<>();
 
-        try {
-            // Try to parse as JSON array first (current controller format)
-            JsonNode rootNode = objectMapper.readTree(content);
-            if (rootNode.isArray()) {
-                for (JsonNode node : rootNode) {
-                    JsonNode keyNode = node.get("key");
-                    JsonNode nodeIdNode = node.get("node");
+        // Parse NDJSON format (one JSON object per line)
+        String[] lines = content.split("\n");
 
-                    if (keyNode != null && nodeIdNode != null && !keyNode.isNull() && !nodeIdNode.isNull()) {
-                        String key = keyNode.asText();
-                        String nodeId = nodeIdNode.asText();
-                        result.add(new KeyNodeInfo(key, nodeId));
-                    }
+        for (String line : lines) {
+            if (line.trim().isEmpty()) continue;
+
+            try {
+                JsonNode node = objectMapper.readTree(line);
+                JsonNode keyNode = node.get("key");
+                JsonNode nodeIdNode = node.get("node");
+
+                if (keyNode != null && nodeIdNode != null && !keyNode.isNull() && !nodeIdNode.isNull()) {
+                    String key = keyNode.asText();
+                    String nodeId = nodeIdNode.asText();
+                    result.add(new KeyNodeInfo(key, nodeId));
+                } else {
+                    logger.warn("Skipping invalid key-node info line (missing or null fields): {}", line);
                 }
-            } else {
-                // Fallback: try to parse as NDJSON (one JSON object per line)
-                String[] lines = content.split("\n");
-                for (String line : lines) {
-                    if (line.trim().isEmpty()) continue;
-
-                    JsonNode node = objectMapper.readTree(line);
-                    JsonNode keyNode = node.get("key");
-                    JsonNode nodeIdNode = node.get("node");
-
-                    if (keyNode != null && nodeIdNode != null && !keyNode.isNull() && !nodeIdNode.isNull()) {
-                        String key = keyNode.asText();
-                        String nodeId = nodeIdNode.asText();
-                        result.add(new KeyNodeInfo(key, nodeId));
-                    }
-                }
+            } catch (Exception e) {
+                logger.warn("Failed to parse key-node info from line: {}", line, e);
             }
-        } catch (Exception e) {
-            logger.warn("Failed to parse key-node response: {}", content.substring(0, Math.min(200, content.length())), e);
         }
 
         return result;
