@@ -105,10 +105,11 @@ class ClusterServiceTest {
     }
 
     @Test
-    void shouldThrowExceptionWhenNoNodesConfigured() {
+    void shouldNotRedirectWhenNoNodesConfigured() {
         when(clusterConfiguration.getNodes()).thenReturn(Arrays.asList());
 
-        assertThrows(IllegalStateException.class, () -> clusterService.routeKey("test"));
+        KeyRoutingResult result = clusterService.routeKey("test");
+        assertFalse(result.isShouldRedirect());
     }
 
     @Test

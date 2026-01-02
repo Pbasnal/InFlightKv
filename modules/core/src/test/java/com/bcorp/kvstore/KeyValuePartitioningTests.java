@@ -93,7 +93,7 @@ public class KeyValuePartitioningTests {
         // Verify all writes succeeded
         assertTrue(writeErrors.isEmpty(),
                 "All writes should succeed. Errors: " + writeErrors);
-        assertEquals(totalKeys, store.totalKeys(),
+        assertEquals(totalKeys, store.totalKeys().join(),
                 "All keys should be stored");
 
         // Phase 2: Concurrent reads - verify partition consistency
@@ -158,7 +158,7 @@ public class KeyValuePartitioningTests {
 
         assertTrue(setErrors.isEmpty(),
                 "All sets should succeed. Errors: " + setErrors);
-        assertEquals(totalKeys, store.totalKeys(),
+        assertEquals(totalKeys, store.totalKeys().join(),
                 "All keys should be stored before removal");
 
         // Phase 2: Concurrent removes - each key removed once
@@ -188,7 +188,7 @@ public class KeyValuePartitioningTests {
         // Verify all removes succeeded and store is empty
         assertTrue(removeErrors.isEmpty(),
                 "All removes should succeed. Errors: " + removeErrors);
-        assertEquals(0, store.totalKeys(),
+        assertEquals(0, store.totalKeys().join(),
                 "All keys should be removed from all partitions");
     }
 
@@ -227,7 +227,7 @@ public class KeyValuePartitioningTests {
 
         assertTrue(errors.isEmpty(),
                 "All writes should succeed. Errors: " + errors);
-        assertEquals(totalKeys, store.totalKeys(),
+        assertEquals(totalKeys, store.totalKeys().join(),
                 "All keys should be stored across partitions");
 
         // Verify keys are accessible - proves they're in correct partitions
@@ -275,7 +275,7 @@ public class KeyValuePartitioningTests {
 
         assertTrue(errors.isEmpty(),
                 "All writes should succeed. Errors: " + errors);
-        assertEquals(totalKeys, store.totalKeys(),
+        assertEquals(totalKeys, store.totalKeys().join(),
                 "All keys should be stored in isolated partitions");
 
         // Verify isolation: each thread's keys should be independent
@@ -314,7 +314,7 @@ public class KeyValuePartitioningTests {
             expectedValues.put(keyStr, valueStr);
         }
 
-        assertEquals(similarKeys.size(), store.totalKeys(),
+        assertEquals(similarKeys.size(), store.totalKeys().join(),
                 "All similar keys should be stored");
 
         // Verify each key routes consistently (same key always retrieves same value)
@@ -350,7 +350,7 @@ public class KeyValuePartitioningTests {
             RequestDataValue value = RequestDataValue.fromString("initial-" + key.key());
             store.set(key, value, null).join();
         }
-        assertEquals(numKeys, store.totalKeys(),
+        assertEquals(numKeys, store.totalKeys().join(),
                 "All keys should be stored");
 
         // Test containsKey routes to same partition
@@ -372,7 +372,7 @@ public class KeyValuePartitioningTests {
             CachedDataValue removed = store.remove(key).join();
             assertNotNull(removed, "Removed value should exist for: " + key.key());
         }
-        assertEquals(0, store.totalKeys(),
+        assertEquals(0, store.totalKeys().join(),
                 "All keys should be removed from their partitions");
     }
 }

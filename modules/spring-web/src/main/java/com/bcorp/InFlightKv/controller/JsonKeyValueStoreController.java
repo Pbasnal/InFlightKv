@@ -2,6 +2,7 @@ package com.bcorp.InFlightKv.controller;
 
 import com.bcorp.InFlightKv.pojos.CacheError;
 import com.bcorp.InFlightKv.pojos.CacheResponse;
+import com.bcorp.InFlightKv.service.ClusterKeyService;
 import com.bcorp.InFlightKv.service.ClusterService;
 import com.bcorp.InFlightKv.service.KeyRoutingResult;
 import com.bcorp.InFlightKv.service.KeyValueStoreService;
@@ -19,10 +20,14 @@ public class JsonKeyValueStoreController {
 
     private final KeyValueStoreService keyValueStoreService;
     private final ClusterService clusterService;
+    private final ClusterKeyService clusterKeyService;
 
-    public JsonKeyValueStoreController(KeyValueStoreService keyValueStoreService, ClusterService clusterService) {
+    public JsonKeyValueStoreController(KeyValueStoreService keyValueStoreService,
+                                     ClusterService clusterService,
+                                     ClusterKeyService clusterKeyService) {
         this.keyValueStoreService = keyValueStoreService;
         this.clusterService = clusterService;
+        this.clusterKeyService = clusterKeyService;
     }
 
     @GetMapping("/{key}")
@@ -137,7 +142,7 @@ public class JsonKeyValueStoreController {
 
     @GetMapping("")
     public Mono<ResponseEntity<List<DataKey>>> getAllKeys() {
-        return Mono.fromCallable(() -> keyValueStoreService.getAllKeys()
+        return Mono.fromCallable(() -> clusterKeyService.getAllKeysFromCluster()
                         .thenApply(ResponseEntity::ok))
                 .flatMap(Mono::fromFuture);
     }

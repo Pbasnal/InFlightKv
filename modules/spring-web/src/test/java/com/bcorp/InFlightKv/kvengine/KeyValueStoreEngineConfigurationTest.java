@@ -63,7 +63,7 @@ public class KeyValueStoreEngineConfigurationTest {
         // Then
         assertNotNull(bean, "KeyValueStore bean should be created");
         assertEquals(keyValueStore, bean, "Autowired KeyValueStore should match bean from context");
-        assertTrue(keyValueStore.totalKeys() >= 0, "KeyValueStore should be properly initialized");
+        assertTrue(keyValueStore.totalKeys().join() >= 0, "KeyValueStore should be properly initialized");
     }
 
     @Test
@@ -305,7 +305,7 @@ public class KeyValueStoreEngineConfigurationTest {
     @DisplayName("Should verify KeyValueStore is empty on startup")
     void shouldVerifyKeyValueStoreIsEmptyOnStartup() {
         // Test that the KeyValueStore starts empty (as expected for a fresh instance)
-        assertEquals(0, keyValueStore.totalKeys(), "KeyValueStore should start empty");
+        assertEquals(0, keyValueStore.totalKeys().join(), "KeyValueStore should start empty");
     }
 
     @Test
@@ -345,7 +345,7 @@ public class KeyValueStoreEngineConfigurationTest {
 
             // Then
             assertNotNull(kvStore, "KeyValueStore should be instantiable");
-            assertEquals(0, kvStore.totalKeys(), "New KeyValueStore should be empty");
+            assertEquals(0, kvStore.totalKeys().join(), "New KeyValueStore should be empty");
         }
 
         @Test
