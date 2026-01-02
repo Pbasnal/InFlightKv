@@ -8,16 +8,16 @@ public class KeyRoutingResult {
     private final String nodeName;
     private final String host;
     private final int port;
-    private final String internalUrl;
+    private final String externalUrl;
     private final boolean shouldRedirect;
 
     public KeyRoutingResult(String nodeId, String nodeName, String host, int port,
-                            String internalUrl, boolean shouldRedirect) {
+                            String externalUrl, boolean shouldRedirect) {
         this.nodeId = nodeId;
         this.nodeName = nodeName;
         this.host = host;
         this.port = port;
-        this.internalUrl = internalUrl;
+        this.externalUrl = externalUrl;
         this.shouldRedirect = shouldRedirect;
     }
 
@@ -37,8 +37,8 @@ public class KeyRoutingResult {
         return port;
     }
 
-    public String getInternalUrl() {
-        return internalUrl;
+    public String getExternalUrl() {
+        return externalUrl;
     }
 
     public boolean isShouldRedirect() {
@@ -52,7 +52,7 @@ public class KeyRoutingResult {
                 ", nodeName='" + nodeName + '\'' +
                 ", host='" + host + '\'' +
                 ", port=" + port +
-                ", internalUrl='" + internalUrl + '\'' +
+                ", externalUrl='" + externalUrl + '\'' +
                 ", shouldRedirect=" + shouldRedirect +
                 '}';
     }

@@ -71,8 +71,15 @@ public class ClusterService {
         }
 
         List<ClusterConfiguration.NodeInfo> nodes = clusterConfiguration.getNodes();
-        if (nodes.isEmpty()) {
-            throw new IllegalStateException("No nodes configured in cluster");
+        if (nodes == null || nodes.isEmpty()) {
+            return new KeyRoutingResult(
+                    currentNodeId,
+                    currentNodeName,
+                    null,
+                    -1,
+                    null,
+                    false
+            );
         }
 
         // Calculate hash and determine target node index
@@ -84,15 +91,15 @@ public class ClusterService {
         boolean shouldRedirect = !targetNode.getId().equals(currentNodeId);
 
         logger.debug("Key '{}' routed to node '{}' (index {}), redirect: {}",
-                    key, targetNode.getId(), nodeIndex, shouldRedirect);
+                key, targetNode.getId(), nodeIndex, shouldRedirect);
 
         return new KeyRoutingResult(
-            targetNode.getId(),
-            targetNode.getName(),
-            targetNode.getHost(),
-            targetNode.getPort(),
-            targetNode.getInternalUrl(),
-            shouldRedirect
+                targetNode.getId(),
+                targetNode.getName(),
+                targetNode.getHost(),
+                targetNode.getPort(),
+                targetNode.getExternalUrl(),
+                shouldRedirect
         );
     }
 

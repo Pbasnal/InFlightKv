@@ -76,6 +76,10 @@ public class KeyValueStoreService {
         }
     }
 
+    public CompletableFuture<List<DataKey>> getAllKeys() {
+        return keyValueStore.getAllKeys();
+    }
+
     private CompletableFuture<CacheResponse<String>> checkVersionAndSetValue(
             DataKey key,
             JsonNode inputValueNode,
